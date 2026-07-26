@@ -1,0 +1,27 @@
+# Build output
+bin/
+obj/
+
+# IDE
+.vs/
+.vscode/
+*.swp
+*.swo
+
+# NuGet
+packages/
+*.nupkg
+
+# OS
+.DS_Store
+Thumbs.db
+
+# User secrets
+secrets.json
+
+# Test results
+TestResults/
+*.trx
+
+# Docker
+docker-compose.override.yml
