@@ -1,0 +1,52 @@
+# JPRM Build Configuration
+# https://github.com/jellyfin/jellyfin-plugin-repository-manager
+
+version: "1.0.0"
+# Target ABI: Jellyfin 10.11.x -> "10.11.0.0"
+# Format: Major.Minor.Patch.Build (last two usually 0)
+targetAbi: "10.11.0.0"
+# Target framework for the plugin
+framework: "net9.0"
+# Path to the .csproj file (relative to this file)
+project: "Jellyfin.Plugin.TorrentSearch/Jellyfin.Plugin.TorrentSearch.csproj"
+# Assembly name (from csproj)
+assemblyName: "Jellyfin.Plugin.TorrentSearch"
+# Plugin name (display name in Jellyfin)
+name: "Torrent Search"
+# Plugin description
+description: "Search for movies and TV shows via Jackett/Prowlarr, download via qBittorrent or embedded MonoTorrent, and auto-sync to Jellyfin library"
+# Author
+author: "alphingj"
+# Author email (optional)
+authorEmail: ""
+# Source URL
+sourceUrl: "https://github.com/alphingj/jellyfin-plugin-torrentsearch"
+# Icon URL (optional)
+iconUrl: ""
+# Changelog URL (optional)
+changelogUrl: "https://github.com/alphingj/jellyfin-plugin-torrentsearch/blob/main/CHANGELOG.md"
+# Categories (Metadata, Download, Automation, etc.)
+categories:
+  - "Metadata"
+  - "Download"
+  - "Automation"
+# Platforms
+platforms:
+  - "Windows"
+  - "Linux"
+  - "macOS"
+  - "ARM64"
+# Keywords
+keywords:
+  - "torrent"
+  - "jackett"
+  - "prowlarr"
+  - "qbittorrent"
+  - "metadata"
+  - "automation"
+# Dependencies (none for this plugin)
+dependencies: []
+# Minimum Jellyfin version (matches targetAbi major.minor)
+minJellyfinVersion: "10.11.0"
+# Maximum Jellyfin version (exclusive, leave empty for no max)
+maxJellyfinVersion: ""
