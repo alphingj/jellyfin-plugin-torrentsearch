@@ -402,3 +402,41 @@ body {
     .results-grid { grid-template-columns: 1fr; }
     .form-group input { max-width: 100%; }
 }
+
+.plugin-footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #2a2a4a;
+    text-align: center;
+    color: #666;
+    font-size: 0.85rem;
+}
+
+.plugin-footer a {
+    color: #4ecdc4;
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+.plugin-footer a:hover {
+    color: #45b7b0;
+}
+
+.plugin-footer .social-links {
+    margin-top: 0.5rem;
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+}
+
+.plugin-footer .social-links a {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.plugin-footer .social-links svg {
+    width: 18px;
+    height: 18px;
+    fill: currentColor;
+}
