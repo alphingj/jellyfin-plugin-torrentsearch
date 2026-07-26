@@ -1,0 +1,96 @@
+name: Build & Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '9.0.x'
+
+      - name: Restore
+        run: dotnet restore Jellyfin.Plugin.TorrentSearch/Jellyfin.Plugin.TorrentSearch.csproj
+
+      - name: Build
+        run: dotnet build Jellyfin.Plugin.TorrentSearch/Jellyfin.Plugin.TorrentSearch.csproj -c Release --no-restore
+
+      - name: Package
+        run: |
+          cd Jellyfin.Plugin.TorrentSearch
+          zip -j ../Jellyfin.Plugin.TorrentSearch_${{ github.event.release.tag_name }}.zip \
+            bin/Release/net9.0/Jellyfin.Plugin.TorrentSearch.dll \
+            meta.json
+
+      - name: Upload Asset
+        uses: actions/upload-release-asset@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./Jellyfin.Plugin.TorrentSearch_${{ github.event.release.tag_name }}.zip
+          asset_name: Jellyfin.Plugin.TorrentSearch_${{ github.event.release.tag_name }}.zip
+          asset_content_type: application/zip
+
+  update-manifest:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Update manifest.json
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+          CHECKSUM=$(sha256sum Jellyfin.Plugin.TorrentSearch/bin/Release/net9.0/Jellyfin.Plugin.TorrentSearch.dll | cut -d' ' -f1)
+          
+          cat > manifest.json <<EOF
+{
+  "guid": "8b9e2c4d-7f3a-4d5e-9c1b-2a8f6e4d3c7a",
+  "name": "Torrent Search",
+  "description": "Search for movies and TV shows via Jackett/Prowlarr, download via qBittorrent or embedded MonoTorrent, and auto-sync to Jellyfin library",
+  "overview": "Full-featured torrent search and download integration for Jellyfin with Jackett/Prowlarr support, qBittorrent/MonoTorrent clients, TMDB metadata enrichment, and automatic library synchronization.",
+  "owner": "alphingj",
+  "category": "Metadata",
+  "versions": [
+    {
+      "version": "${VERSION}",
+      "changelog": "Release ${VERSION}",
+      "targetAbi": "10.11.0.0",
+      "sourceUrl": "https://github.com/alphingj/jellyfin-plugin-torrentsearch/releases/download/${{ github.event.release.tag_name }}/Jellyfin.Plugin.TorrentSearch_${{ github.event.release.tag_name }}.zip",
+      "checksum": "sha256:$(sha256sum Jellyfin.Plugin.TorrentSearch/bin/Release/net9.0/Jellyfin.Plugin.TorrentSearch.dll | cut -d' ' -f1)",
+      "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    }
+  ]
+}
+EOF
+
+      - name: Commit & Push manifest
+        run: |
+          git add manifest.json
+          git diff --cached --quiet || git commit -m "Update manifest for ${{ github.event.release.tag_name }}"
+          git push
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
+        if: success()
