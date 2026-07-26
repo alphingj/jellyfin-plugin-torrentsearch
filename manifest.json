@@ -1,18 +1,14 @@
-{
-  "guid": "8b9e2c4d-7f3a-4d5e-9c1b-2a8f6e4d3c7a",
-  "name": "Torrent Search",
-  "description": "Search for movies and TV shows via Jackett/Prowlarr, download via qBittorrent or embedded MonoTorrent, and auto-sync to Jellyfin library",
-  "overview": "Full-featured torrent search and download integration for Jellyfin with Jackett/Prowlarr support, qBittorrent/MonoTorrent clients, TMDB metadata enrichment, and automatic library synchronization.",
-  "owner": "alphingj",
-  "category": "Metadata",
-  "versions": [
-    {
-      "version": "1.0.0",
-      "changelog": "Initial release - Search movies/TV via Jackett/Prowlarr (Torznab API), Download via qBittorrent WebAPI or embedded MonoTorrent (ARM64 native), TMDB metadata enrichment with NFO generation, Auto-organization to Jellyfin naming convention, Dashboard UI with search, download queue, settings",
-      "targetAbi": "10.11.0.0",
-      "sourceUrl": "https://github.com/alphingj/jellyfin-plugin-torrentsearch/releases/download/1.0.0/Jellyfin.Plugin.TorrentSearch_1.0.0.zip",
-      "checksum": "sha256:bb8c3b5e832df02ce8cff8b1d6aaa390da54e2023d08989c88fc88515b9d3b54",
-      "timestamp": "2026-07-26T00:00:00Z"
-    }
-  ]
-}
+[
+  {
+    "Name": "Torrent Search",
+    "Description": "Search for movies and TV shows via Jackett/Prowlarr, download via qBittorrent or embedded MonoTorrent, and auto-sync to Jellyfin library",
+    "Version": "1.0.0",
+    "TargetAbi": "10.11.0.0",
+    "AssemblyName": "Jellyfin.Plugin.TorrentSearch",
+    "Author": "alphingj",
+    "Category": "Metadata",
+    "SourceUrl": "https://github.com/alphingj/jellyfin-plugin-torrentsearch/releases/download/1.0.0/Jellyfin.Plugin.TorrentSearch_1.0.0.zip",
+    "Checksum": "sha256:bb8c3b5e832df02ce8cff8b1d6aaa390da54e2023d08989c88fc88515b9d3b54",
+    "Timestamp": "2026-07-26T00:00:00Z"
+  }
+]
