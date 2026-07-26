@@ -1,0 +1,477 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Torrent Search Configuration</title>
+    <link rel="stylesheet" href="config.css">
+    <script src="https://cdn.jsdelivr.net/npm/vue@3/dist/vue.global.prod.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
+</head>
+<body>
+<div id="app" x-data="torrentSearchApp()" x-init="init()">
+    <div class="page-header">
+        <h1>Torrent Search Configuration</h1>
+    </div>
+
+    <div class="tabs" role="tablist">
+        <button role="tab" :class="{ active: activeTab === 'search' }" @click="activeTab = 'search'" aria-selected="activeTab === 'search'">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            Search
+        </button>
+        <button role="tab" :class="{ active: activeTab === 'downloads' }" @click="activeTab = 'downloads'" aria-selected="activeTab === 'downloads'">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+            Downloads
+        </button>
+        <button role="tab" :class="{ active: activeTab === 'settings' }" @click="activeTab = 'settings'" aria-selected="activeTab === 'settings'">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.31.06-.63.06-.94 0-.31-.02-.63-.06-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.04.31-.06.63-.06.94s.02.63.06.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.57 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+            Settings
+        </button>
+        <button role="tab" :class="{ active: activeTab === 'library' }" @click="activeTab = 'library'" aria-selected="activeTab === 'library'">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+            Library
+        </button>
+    </div>
+
+    <div class="tab-content">
+        <div v-if="activeTab === 'search'" class="tab-panel">
+            <div class="card">
+                <h2>Search Movies</h2>
+                <div class="form-group">
+                    <input type="text" v-model="movieSearch.query" placeholder="Movie title..." @keyup.enter="searchMovies()">
+                    <input type="number" v-model.number="movieSearch.year" placeholder="Year (optional)" min="1900" max="2030" style="width: 100px;">
+                    <button class="btn btn-primary" @click="searchMovies()" :disabled="searchLoading">
+                        <span v-if="searchLoading" class="spinner"></span>
+                        Search
+                    </button>
+                </div>
+                
+                <div v-if="movieSearch.results.length > 0" class="results-grid">
+                    <div class="result-card" v-for="result in movieSearch.results" :key="result.title + result.year">
+                        <div class="result-header">
+                            <h3>{{ result.title }} ({{ result.year }})</h3>
+                            <span class="quality-badge" :class="result.quality.resolution">{{ result.quality.badge }}</span>
+                        </div>
+                        <div class="result-meta">
+                            <span><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg> {{ result.seeders }} seeders</span>
+                            <span><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/></svg> {{ result.leechers }} leechers</span>
+                            <span><svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg> {{ formatSize(result.size) }}</span>
+                            <span class="indexer">{{ result.indexer }}</span>
+                        </div>
+                        <div class="result-actions">
+                            <button class="btn btn-sm btn-primary" @click="confirmDownload(result, 'movies')">
+                                Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div v-else-if="movieSearch.searched && movieSearch.results.length === 0" class="empty-state">
+                    No results found
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 1rem;">
+                <h2>Search TV Shows</h2>
+                <div class="form-group">
+                    <input type="text" v-model="showSearch.query" placeholder="Show title..." @keyup.enter="searchShows()">
+                    <input type="number" v-model.number="showSearch.season" placeholder="Season" min="1" style="width: 80px;">
+                    <input type="number" v-model.number="showSearch.episode" placeholder="Episode" min="1" style="width: 80px;">
+                    <button class="btn btn-primary" @click="searchShows()" :disabled="searchLoading">
+                        <span v-if="searchLoading" class="spinner"></span>
+                        Search
+                    </button>
+                </div>
+                
+                <div v-if="showSearch.results.length > 0" class="results-grid">
+                    <div class="result-card" v-for="result in showSearch.results" :key="result.title + result.season + result.episode">
+                        <div class="result-header">
+                            <h3>{{ result.title }} S{{ result.season }}E{{ result.episode }}</h3>
+                            <span class="quality-badge" :class="result.quality.resolution">{{ result.quality.badge }}</span>
+                        </div>
+                        <div class="result-meta">
+                            <span>{{ result.seeders }} seeders</span>
+                            <span>{{ result.leechers }} leechers</span>
+                            <span>{{ formatSize(result.size) }}</span>
+                            <span class="indexer">{{ result.indexer }}</span>
+                        </div>
+                        <div class="result-actions">
+                            <button class="btn btn-sm btn-primary" @click="confirmDownload(result, 'tv')">
+                                Download
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="activeTab === 'downloads'" class="tab-panel">
+            <div class="card">
+                <h2>Active Downloads</h2>
+                <div v-if="downloads.length === 0" class="empty-state">
+                    No active downloads
+                </div>
+                <div class="download-list" v-else>
+                    <div class="download-item" v-for="dl in downloads" :key="dl.hash">
+                        <div class="download-info">
+                            <div class="download-name">{{ dl.name }}</div>
+                            <div class="download-meta">
+                                <span>{{ dl.state }}</span>
+                                <span>{{ dl.seeders }} seeders / {{ dl.peers }} peers</span>
+                                <span>{{ formatSpeed(dl.downloadSpeed) }}/s</span>
+                            </div>
+                        </div>
+                        <div class="progress-bar">
+                            <div class="progress-fill" :style="{ width: dl.progress * 100 + '%' }"></div>
+                        </div>
+                        <div class="download-progress">{{ (dl.progress * 100).toFixed(1) }}%</div>
+                        <div class="download-actions">
+                            <button class="btn btn-sm" @click="pauseDownload(dl.hash)" v-if="dl.state !== 'paused'">Pause</button>
+                            <button class="btn btn-sm" @click="resumeDownload(dl.hash)" v-if="dl.state === 'paused'">Resume</button>
+                            <button class="btn btn-sm btn-danger" @click="removeDownload(dl.hash)">Remove</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="activeTab === 'settings'" class="tab-panel">
+            <div class="card">
+                <h2>Indexer Settings (Jackett/Prowlarr)</h2>
+                <div class="form-group">
+                    <label>Jackett URL</label>
+                    <input type="text" v-model="config.jackettUrl" placeholder="http://localhost:9117">
+                </div>
+                <div class="form-group">
+                    <label>Jackett API Key</label>
+                    <input type="password" v-model="config.jackettApiKey" placeholder="API Key">
+                </div>
+                <div class="form-group">
+                    <label>Prowlarr URL</label>
+                    <input type="text" v-model="config.prowlarrUrl" placeholder="http://localhost:9696">
+                </div>
+                <div class="form-group">
+                    <label>Prowlarr API Key</label>
+                    <input type="password" v-model="config.prowlarrApiKey" placeholder="API Key">
+                </div>
+                <div class="form-group">
+                    <label>Use Prowlarr instead of Jackett</label>
+                    <input type="checkbox" v-model="config.useProwlarr">
+                </div>
+                <button class="btn btn-secondary" @click="testIndexer()">Test Indexer Connection</button>
+            </div>
+
+            <div class="card" style="margin-top: 1rem;">
+                <h2>Torrent Client Settings</h2>
+                <div class="form-group">
+                    <label>Client Type</label>
+                    <select v-model="config.torrentClient">
+                        <option value="qbittorrent">qBittorrent</option>
+                        <option value="monotorrent">MonoTorrent (Embedded)</option>
+                    </select>
+                </div>
+                
+                <div v-if="config.torrentClient === 'qbittorrent'">
+                    <div class="form-group">
+                        <label>qBittorrent URL</label>
+                        <input type="text" v-model="config.qbittorrentUrl" placeholder="http://localhost:8080">
+                    </div>
+                    <div class="form-group">
+                        <label>Username</label>
+                        <input type="text" v-model="config.qbittorrentUsername" placeholder="admin">
+                    </div>
+                    <div class="form-group">
+                        <label>Password</label>
+                        <input type="password" v-model="config.qbittorrentPassword" placeholder="Password">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Download Path</label>
+                    <input type="text" v-model="config.downloadPath" placeholder="/downloads">
+                </div>
+                <div class="form-group">
+                    <label>Max Concurrent Downloads</label>
+                    <input type="number" v-model.number="config.maxConcurrentDownloads" min="1" max="10">
+                </div>
+                <button class="btn btn-secondary" @click="testClient()">Test Client Connection</button>
+            </div>
+
+            <div class="card" style="margin-top: 1rem;">
+                <h2>TMDB Settings</h2>
+                <div class="form-group">
+                    <label>TMDB API Key (optional - uses default if empty)</label>
+                    <input type="text" v-model="config.tmdbApiKey" placeholder="Your TMDB API Key">
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 1rem;">
+                <h2>Search Preferences</h2>
+                <div class="form-group">
+                    <label>Max Search Results</label>
+                    <input type="number" v-model.number="config.maxSearchResults" min="5" max="100">
+                </div>
+                <div class="form-group">
+                    <label>Minimum Seeders</label>
+                    <input type="number" v-model.number="config.minSeeders" min="0" max="100">
+                </div>
+                <div class="form-group">
+                    <label>Preferred Keywords (comma separated)</label>
+                    <input type="text" v-model="config.preferredKeywords" placeholder="1080p, x264, x265, hevc">
+                </div>
+                <div class="form-group">
+                    <label>Excluded Keywords (comma separated)</label>
+                    <input type="text" v-model="config.excludedKeywords" placeholder="cam, ts, tc, scr, dvdscr">
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 1rem;">
+                <button class="btn btn-primary" @click="saveConfig()">Save Configuration</button>
+            </div>
+        </div>
+
+        <div v-if="activeTab === 'library'" class="tab-panel">
+            <div class="card">
+                <h2>Library Paths</h2>
+                <div class="form-group">
+                    <label>Movies Library Path</label>
+                    <input type="text" v-model="config.moviesLibraryPath" placeholder="/media/movies">
+                </div>
+                <div class="form-group">
+                    <label>TV Shows Library Path</label>
+                    <input type="text" v-model="config.tvShowsLibraryPath" placeholder="/media/tv">
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 1rem;">
+                <h2>Auto-Sync Settings</h2>
+                <div class="form-group">
+                    <label>Auto Refresh Library</label>
+                    <input type="checkbox" v-model="config.autoRefreshLibrary">
+                </div>
+                <div class="form-group">
+                    <label>Scan Interval (minutes)</label>
+                    <input type="number" v-model.number="config.scanIntervalMinutes" min="1" max="1440">
+                </div>
+            </div>
+
+            <div class="card" style="margin-top: 1rem;">
+                <h2>Library Actions</h2>
+                <button class="btn btn-secondary" @click="scanMovies()">Scan Movies Library</button>
+                <button class="btn btn-secondary" style="margin-left: 0.5rem;" @click="scanTVShows()">Scan TV Shows Library</button>
+                <button class="btn btn-secondary" style="margin-left: 0.5rem;" @click="refreshLibrary()">Refresh Jellyfin Library</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" v-if="showDownloadModal">
+        <div class="modal">
+            <h3>Confirm Download</h3>
+            <p>Download <strong>{{ selectedDownload?.title }}</strong>?</p>
+            <div class="form-group">
+                <label>Category</label>
+                <select v-model="downloadOptions.category">
+                    <option value="movies">Movies</option>
+                    <option value="tv">TV Shows</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Save Path</label>
+                <input type="text" v-model="downloadOptions.savePath">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" @click="showDownloadModal = false">Cancel</button>
+                <button class="btn btn-primary" @click="executeDownload()">Download</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" v-for="toast in toasts" :key="toast.id" :class="toast.type">
+        {{ toast.message }}
+    </div>
+</div>
+
+<script>
+const { createApp } = Vue;
+
+createApp({
+    data() {
+        return {
+            activeTab: 'search',
+            searchLoading: false,
+            movieSearch: { query: '', year: 0, results: [], searched: false },
+            showSearch: { query: '', season: 0, episode: 0, results: [], searched: false },
+            downloads: [],
+            config: {},
+            showDownloadModal: false,
+            selectedDownload: null,
+            downloadOptions: { category: 'movies', savePath: '' },
+            toasts: [],
+            toastId: 0
+        };
+    },
+    async init() {
+        await this.loadConfig();
+        await this.loadDownloads();
+        setInterval(() => this.loadDownloads(), 5000);
+    },
+    async loadConfig() {
+        try {
+            const res = await fetch('/TorrentSearch/Config');
+            this.config = await res.json();
+            this.downloadOptions.savePath = this.config.downloadPath || '/downloads';
+        } catch (e) {
+            console.error('Failed to load config', e);
+        }
+    },
+    async saveConfig() {
+        try {
+            await fetch('/TorrentSearch/Config', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(this.config)
+            });
+            this.showToast('Configuration saved', 'success');
+        } catch (e) {
+            this.showToast('Failed to save config', 'error');
+        }
+    },
+    async searchMovies() {
+        this.searchLoading = true;
+        this.movieSearch.searched = true;
+        try {
+            const params = new URLSearchParams({ query: this.movieSearch.query });
+            if (this.movieSearch.year) params.append('year', this.movieSearch.year);
+            const res = await fetch('/TorrentSearch/Search/Movie?' + params);
+            this.movieSearch.results = await res.json();
+        } catch (e) {
+            this.showToast('Search failed', 'error');
+        } finally {
+            this.searchLoading = false;
+        }
+    },
+    async searchShows() {
+        this.searchLoading = true;
+        this.showSearch.searched = true;
+        try {
+            const params = new URLSearchParams({ query: this.showSearch.query });
+            if (this.showSearch.season) params.append('season', this.showSearch.season);
+            if (this.showSearch.episode) params.append('episode', this.showSearch.episode);
+            const res = await fetch('/TorrentSearch/Search/Show?' + params);
+            this.showSearch.results = await res.json();
+        } catch (e) {
+            this.showToast('Search failed', 'error');
+        } finally {
+            this.searchLoading = false;
+        }
+    },
+    async loadDownloads() {
+        try {
+            const res = await fetch('/TorrentSearch/Downloads');
+            this.downloads = await res.json();
+        } catch (e) {
+            console.error('Failed to load downloads', e);
+        }
+    },
+    async testIndexer() {
+        try {
+            const res = await fetch('/TorrentSearch/Config/TestIndexer');
+            const ok = await res.json();
+            this.showToast(ok ? 'Indexer connection successful' : 'Indexer connection failed', ok ? 'success' : 'error');
+        } catch (e) {
+            this.showToast('Indexer test failed', 'error');
+        }
+    },
+    async testClient() {
+        try {
+            const res = await fetch('/TorrentSearch/Config/TestClient');
+            const ok = await res.json();
+            this.showToast(ok ? 'Client connection successful' : 'Client connection failed', ok ? 'success' : 'error');
+        } catch (e) {
+            this.showToast('Client test failed', 'error');
+        }
+    },
+    confirmDownload(result, category) {
+        this.selectedDownload = result;
+        this.downloadOptions.category = category;
+        this.downloadOptions.savePath = category === 'tv' 
+            ? (this.config.tvShowsLibraryPath || '/media/tv')
+            : (this.config.moviesLibraryPath || '/media/movies');
+        this.showDownloadModal = true;
+    },
+    async executeDownload() {
+        if (!this.selectedDownload) return;
+        
+        try {
+            const res = await fetch('/TorrentSearch/Download/Start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    magnetLink: this.selectedDownload.magnetLink,
+                    savePath: this.downloadOptions.savePath,
+                    category: this.downloadOptions.category,
+                    autoStart: true
+                })
+            });
+            const result = await res.json();
+            this.showToast(result.success ? 'Download started' : 'Failed: ' + result.errorMessage, result.success ? 'success' : 'error');
+            this.showDownloadModal = false;
+            await this.loadDownloads();
+        } catch (e) {
+            this.showToast('Download failed', 'error');
+        }
+    },
+    async pauseDownload(hash) {
+        await fetch(`/TorrentSearch/Downloads/${hash}/Pause`, { method: 'POST' });
+        await this.loadDownloads();
+    },
+    async resumeDownload(hash) {
+        await fetch(`/TorrentSearch/Downloads/${hash}/Resume`, { method: 'POST' });
+        await this.loadDownloads();
+    },
+    async removeDownload(hash) {
+        if (!confirm('Remove this download?')) return;
+        await fetch(`/TorrentSearch/Downloads/${hash}?deleteFiles=false`, { method: 'DELETE' });
+        await this.loadDownloads();
+    },
+    async scanMovies() {
+        this.showToast('Scanning movies library...', 'info');
+        await fetch('/TorrentSearch/Library/Sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mediaType: 'Movie' }) });
+        this.showToast('Movies library scan initiated', 'success');
+    },
+    async scanTVShows() {
+        this.showToast('Scanning TV shows library...', 'info');
+        await fetch('/TorrentSearch/Library/Sync', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ mediaType: 'Series' }) });
+        this.showToast('TV shows library scan initiated', 'success');
+    },
+    async refreshLibrary() {
+        this.showToast('Refreshing Jellyfin library...', 'info');
+        await fetch('/TorrentSearch/Library/Refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ libraryId: 'Movies' }) });
+        await fetch('/TorrentSearch/Library/Refresh', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ libraryId: 'TV Shows' }) });
+        this.showToast('Library refresh triggered', 'success');
+    },
+    formatSize(bytes) {
+        if (!bytes) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        let size = bytes;
+        let unit = 0;
+        while (size >= 1024 && unit < units.length - 1) {
+            size /= 1024;
+            unit++;
+        }
+        return `${size.toFixed(2)} ${units[unit]}`;
+    },
+    formatSpeed(bytes) {
+        return this.formatSize(bytes) + '/s';
+    },
+    showToast(message, type = 'info') {
+        const id = ++this.toastId;
+        this.toasts.push({ id, message, type });
+        setTimeout(() => {
+            this.toasts = this.toasts.filter(t => t.id !== id);
+        }, 5000);
+    }
+}).mount('#app');
+</script>
+</body>
+</html>
