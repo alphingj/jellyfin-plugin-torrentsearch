@@ -11,7 +11,7 @@ jobs:
   release:
     runs-on: ubuntu-latest
     outputs:
-      checksum: ${{ steps.checksum.outputs.sha256 }}
+      checksum: ${{ steps.checksum.outputs.md5 }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -38,7 +38,7 @@ jobs:
       - name: Compute checksum
         id: checksum
         run: |
-          echo "sha256=$(sha256sum Jellyfin.Plugin.TorrentSearch_${{ github.event.release.tag_name }}.zip | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          echo "md5=$(md5sum Jellyfin.Plugin.TorrentSearch_${{ github.event.release.tag_name }}.zip | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
       - name: Upload zip to release
         env:
@@ -65,7 +65,7 @@ jobs:
         run: |
           VERSION="${{ github.event.release.tag_name }}"
           VERSION="${VERSION#v}"
-          CHECKSUM="${{ needs.release.outputs.checksum }}"
+          CHECKSUM="${{ needs.release.outputs.md5 }}"
           ZIP="Jellyfin.Plugin.TorrentSearch_${{ github.event.release.tag_name }}.zip"
           URL="https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/$ZIP"
           TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
@@ -73,16 +73,21 @@ jobs:
           cat > manifest.json <<EOF
           [
             {
-              "Name": "Torrent Search",
-              "Description": "Search for movies and TV shows via Jackett/Prowlarr, download via qBittorrent or embedded MonoTorrent, and auto-sync to Jellyfin library",
-              "Version": "${VERSION}",
-              "TargetAbi": "10.11.0.0",
-              "AssemblyName": "Jellyfin.Plugin.TorrentSearch",
-              "Author": "alphingj",
-              "Category": "Metadata",
-              "SourceUrl": "${URL}",
-              "Checksum": "sha256:${CHECKSUM}",
-              "Timestamp": "${TIMESTAMP}"
+              "name": "Torrent Search",
+              "description": "Search for movies and TV shows via Jackett/Prowlarr, download via qBittorrent or embedded MonoTorrent, and auto-sync to Jellyfin library",
+              "overview": "Search for movies and TV shows via Jackett/Prowlarr, download via qBittorrent or embedded MonoTorrent, and auto-sync to Jellyfin library",
+              "owner": "alphingj",
+              "category": "Metadata",
+              "guid": "8b9e2c4d-7f3a-4d5e-9c1b-2a8f6e4d3c7a",
+              "versions": [
+                {
+                  "version": "${VERSION}",
+                  "targetAbi": "10.11.0.0",
+                  "sourceUrl": "${URL}",
+                  "checksum": "${CHECKSUM}",
+                  "timestamp": "${TIMESTAMP}"
+                }
+              ]
             }
           ]
           EOF
