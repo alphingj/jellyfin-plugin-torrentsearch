@@ -54,6 +54,8 @@ public class DownloadMonitorService : BackgroundService
                             download.Hash, 
                             download.SavePath, 
                             mediaType,
+                            download.Season,
+                            download.Episode,
                             stoppingToken);
                     }
                 }

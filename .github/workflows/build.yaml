@@ -1,125 +1,24 @@
-name: Build & Release
+name: CI Build
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main ]
-  release:
-    types: [ published ]
-  workflow_dispatch:
+    branches: [ master ]
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - abi: "10.11"
-            framework: net9.0
-            dotnet: "9.0.x"
-            jellyfin: "10.11.11"
-            targetabi: "10.11.0.0"
-            plugin-version: ""
-            abi-base: ""
-
-    name: Build (${{ matrix.abi }})
-
     steps:
       - uses: actions/checkout@v6
-
-      - name: Guard - release tag matches build.yaml version
-        if: github.event_name == 'release'
-        run: |
-          base_ver=$(grep -m1 '^version:' build.yaml | cut -d'"' -f2)
-          tag="${{ github.event.release.tag_name }}"
-          tag="${tag#v}"
-          if [ "$tag" != "$base_ver" ]; then
-            echo "::error::Release tag v$tag does not match build.yaml version $base_ver. Bump build.yaml (and commit) before tagging."
-            exit 1
-          fi
-          echo "Tag matches build.yaml version: $base_ver"
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
         with:
-          dotnet-version: ${{ matrix.dotnet }}
-
-      - name: Resolve version
-        id: ver
-        run: |
-          base_ver=$(grep -m1 '^version:' build.yaml | cut -d'"' -f2)
-          v="${{ matrix['plugin-version'] }}"
-          if [ -z "$v" ]; then
-            abi="${{ matrix['abi-base'] }}"
-            if [ -z "$abi" ]; then v="$base_ver"; else v="$abi.$(echo "$base_ver" | cut -d. -f3-)"; fi
-          fi
-          echo "value=$v" >> "$GITHUB_OUTPUT"
+          dotnet-version: '9.0.x'
 
       - name: Build
-        run: >
-          dotnet build Jellyfin.Plugin.TorrentSearch/Jellyfin.Plugin.TorrentSearch.csproj
-          -c Release -p:TargetFramework=${{ matrix.framework }}
-          -p:JellyfinVersion=${{ matrix.jellyfin }} -p:Version=${{ steps.ver.outputs.value }}
-
-      - name: Test
-        run: >
-          dotnet test Jellyfin.Plugin.TorrentSearch.sln
-          -c Release -p:TargetFramework=${{ matrix.framework }}
-          -p:JellyfinVersion=${{ matrix.jellyfin }} -p:Version=${{ steps.ver.outputs.value }}
-
-      - name: Package
-        if: github.event_name == 'release'
-        env:
-          JellyfinVersion: ${{ matrix.jellyfin }}
-          Version: ${{ steps.ver.outputs.value }}
-        run: |
-          pipx install jprm
-          sed -i \
-            -e "s|^version:.*|version: \"${{ steps.ver.outputs.value }}\"|" \
-            -e "s|^targetAbi:.*|targetAbi: \"${{ matrix.targetabi }}\"|" \
-            -e "s|^framework:.*|framework: \"${{ matrix.framework }}\"|" \
-            build.yaml
-          mkdir -p ./artifacts
-          jprm plugin build "." --output=./artifacts
-
-      - name: Upload package
-        if: github.event_name == 'release'
-        uses: actions/upload-artifact@v7
-        with:
-          name: pkg-${{ matrix.abi }}
-          path: artifacts/*.zip
-
-  publish:
-    needs: build
-    if: github.event_name == 'release'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: main
-      - uses: actions/download-artifact@v8
-        with:
-          path: artifacts
-          merge-multiple: true
-      - name: Attach zips and update manifest
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          pipx install jprm
-          for zip in artifacts/*.zip; do
-            url="https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/$(basename "$zip")"
-            gh release upload "${{ github.event.release.tag_name }}" "$zip" --clobber
-            jprm repo add --plugin-url "$url" ./manifest.json "$zip"
-          done
-      - name: Commit manifest
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add manifest.json
-          git diff --cached --quiet || git commit -m "Publish manifest for ${{ github.event.release.tag_name }}"
-          git push
+        run: dotnet build Jellyfin.Plugin.TorrentSearch/Jellyfin.Plugin.TorrentSearch.csproj -c Release

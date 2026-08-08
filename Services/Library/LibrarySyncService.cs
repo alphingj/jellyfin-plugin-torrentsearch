@@ -21,7 +21,7 @@ public class LibrarySyncService : ILibrarySyncService
         _logger = logger;
     }
 
-    public async Task<SyncResult> SyncCompletedDownloadAsync(string downloadHash, string downloadPath, MediaType mediaType, CancellationToken ct = default)
+    public async Task<SyncResult> SyncCompletedDownloadAsync(string downloadHash, string downloadPath, MediaType mediaType, int? season = null, int? episode = null, CancellationToken ct = default)
     {
         try
         {
@@ -38,7 +38,9 @@ public class LibrarySyncService : ILibrarySyncService
             var fileName = Path.GetFileNameWithoutExtension(mainFile);
             var ext = Path.GetExtension(mainFile);
 
-            var (title, year, season, episode) = MediaNamingHelper.ParseMediaInfo(fileName);
+            var (title, year, parsedSeason, parsedEpisode) = MediaNamingHelper.ParseMediaInfo(fileName);
+            season ??= parsedSeason;
+            episode ??= parsedEpisode;
             var quality = MediaNamingHelper.ParseQuality(fileName);
 
             MovieMetadata? movieMeta = null;
@@ -110,7 +112,7 @@ public class LibrarySyncService : ILibrarySyncService
                 await File.WriteAllTextAsync(nfoPath, nfoContent, ct);
                 createdFiles.Add(nfoPath);
 
-if (episodeMeta != null)
+                if (episodeMeta != null)
                 {
                     var episodeNfoPath = Path.ChangeExtension(targetPath, ".nfo");
                     var episodeNfoContent = NfoGenerator.GenerateEpisodeNfo(episodeMeta, season ?? 0, episode ?? 0);
@@ -118,9 +120,10 @@ if (episodeMeta != null)
                     createdFiles.Add(episodeNfoPath);
                 }
 
-                if (!string.IsNullOrEmpty(movieMeta.PosterPath))
+                var seriesPoster = seriesMeta.Seasons.FirstOrDefault()?.PosterPath ?? string.Empty;
+                if (!string.IsNullOrEmpty(seriesPoster))
                 {
-                    var posterUrl = $"https://image.tmdb.org/t/p/w500{movieMeta.PosterPath}";
+                    var posterUrl = $"https://image.tmdb.org/t/p/w500{seriesPoster}";
                     var posterPath = Path.Combine(targetDir, "poster.jpg");
                     await DownloadImageAsync(posterUrl, posterPath, ct);
                     createdFiles.Add(posterPath);
@@ -206,6 +209,17 @@ if (episodeMeta != null)
         {
             return false;
         }
+    }
+
+    public async Task<List<string>> GetLibraryPathsAsync(MediaType mediaType, CancellationToken ct = default)
+    {
+        var path = mediaType == MediaType.Movie ? _config.MoviesLibraryPath : _config.TvShowsLibraryPath;
+        if (string.IsNullOrWhiteSpace(path))
+            return new List<string>();
+
+        return Directory.Exists(path)
+            ? Directory.GetDirectories(path).ToList()
+            : new List<string>();
     }
 
     private string GetTargetPath(MediaType mediaType, string title, int year, int? season, int? episode, 
