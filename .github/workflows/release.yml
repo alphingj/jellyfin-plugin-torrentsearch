@@ -24,13 +24,13 @@ jobs:
 
       - name: Publish
         run: |
-          dotnet publish Jellyfin.Plugin.TorrentSearch/Jellyfin.Plugin.TorrentSearch.csproj \
+          dotnet publish Jellyfin.Plugin.TorrentSearch.csproj \
             -c Release \
             -o ./publish
 
       - name: Package zip
         run: |
-          cp Jellyfin.Plugin.TorrentSearch/meta.json ./publish/meta.json
+          cp meta.json ./publish/meta.json
           rm -f ./publish/Jellyfin.Plugin.TorrentSearch.pdb
           cd ./publish
           zip -r ../Jellyfin.Plugin.TorrentSearch_${{ github.event.release.tag_name }}.zip ./*
