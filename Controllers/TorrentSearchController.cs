@@ -23,14 +23,31 @@ public class TorrentSearchController : ControllerBase
         ITorrentSearchService searchService,
         IMetadataService metadataService,
         IDownloadManagerService downloadService,
-        ILibrarySyncService librarySync,
-        PluginConfiguration config)
+        ILibrarySyncService librarySync)
     {
         _searchService = searchService;
         _metadataService = metadataService;
         _downloadService = downloadService;
         _librarySync = librarySync;
-        _config = config;
+        _config = Plugin.Instance.Configuration;
+    }
+
+    [HttpGet("Config")]
+    public PluginConfiguration GetConfig()
+    {
+        return Plugin.Instance.Configuration;
+    }
+
+    [HttpPost("Config")]
+    public ActionResult SaveConfig([FromBody] PluginConfiguration config)
+    {
+        if (config == null)
+        {
+            return BadRequest();
+        }
+
+        Plugin.Instance.UpdateConfiguration(config);
+        return NoContent();
     }
 
     [HttpGet("Search/Movie")]
