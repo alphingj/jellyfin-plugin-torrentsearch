@@ -1,7 +1,7 @@
 # JPRM Build Configuration
 # https://github.com/jellyfin/jellyfin-plugin-repository-manager
 
-version: "1.0.0"
+version: "1.0.1"
 # Target ABI: Jellyfin 10.11.x -> "10.11.0.0"
 # Format: Major.Minor.Patch.Build (last two usually 0)
 targetAbi: "10.11.0.0"
@@ -27,7 +27,6 @@ iconUrl: ""
 changelogUrl: "https://github.com/alphingj/jellyfin-plugin-torrentsearch/blob/main/CHANGELOG.md"
 # Categories (Metadata, Download, Automation, etc.)
 categories:
-  - "Metadata"
   - "Download"
   - "Automation"
 # Platforms
@@ -42,7 +41,6 @@ keywords:
   - "jackett"
   - "prowlarr"
   - "qbittorrent"
-  - "metadata"
   - "automation"
 # Dependencies (none for this plugin)
 dependencies: []

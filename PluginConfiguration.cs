@@ -19,7 +19,6 @@ public class PluginConfiguration : BasePluginConfiguration
     public string DownloadPath { get; set; } = "/downloads";
     public int MaxConcurrentDownloads { get; set; } = 3;
 
-    public string TmdbApiKey { get; set; } = string.Empty;
     public int MaxSearchResults { get; set; } = 20;
     public int MinSeeders { get; set; } = 1;
     public List<string> PreferredKeywords { get; set; } = new() { "1080p", "x264", "x265", "hevc" };

@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Jellyfin.Plugin.TorrentSearch.Models;
 using Jellyfin.Plugin.TorrentSearch.Services.Search;
-using Jellyfin.Plugin.TorrentSearch.Services.Metadata;
 using Jellyfin.Plugin.TorrentSearch.Services.Download;
 using Jellyfin.Plugin.TorrentSearch.Services.Library;
 
@@ -14,19 +13,16 @@ namespace Jellyfin.Plugin.TorrentSearch.Controllers;
 public class TorrentSearchController : ControllerBase
 {
     private readonly ITorrentSearchService _searchService;
-    private readonly IMetadataService _metadataService;
     private readonly IDownloadManagerService _downloadService;
     private readonly ILibrarySyncService _librarySync;
     private readonly PluginConfiguration _config;
 
     public TorrentSearchController(
         ITorrentSearchService searchService,
-        IMetadataService metadataService,
         IDownloadManagerService downloadService,
         ILibrarySyncService librarySync)
     {
         _searchService = searchService;
-        _metadataService = metadataService;
         _downloadService = downloadService;
         _librarySync = librarySync;
         _config = Plugin.Instance.Configuration;
@@ -71,11 +67,11 @@ public class TorrentSearchController : ControllerBase
     [HttpGet("Search/Autocomplete")]
     public async Task<List<string>> SearchAutocomplete(string query, CancellationToken ct = default)
     {
-        var movies = await _metadataService.SearchMoviesAsync(query, 0, ct);
-        var shows = await _metadataService.SearchSeriesAsync(query, ct);
-        
-        return movies.Select(m => m.Title)
-            .Concat(shows.Select(s => s.Name))
+        var movies = await _searchService.SearchMoviesAsync(query, 0, ct);
+        var shows = await _searchService.SearchShowsAsync(query, 0, 0, ct);
+
+        return movies.Results.Select(r => r.Title)
+            .Concat(shows.Results.Select(r => r.Title))
             .Distinct()
             .Take(10)
             .ToList();

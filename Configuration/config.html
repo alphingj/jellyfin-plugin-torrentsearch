@@ -595,14 +595,6 @@ body {
         </div>
 
         <div class="card">
-            <h2>TMDB Settings</h2>
-            <div class="form-group">
-                <label>TMDB API Key (optional - uses default if empty)</label>
-                <input type="text" id="tmdbApiKey" placeholder="Your TMDB API Key">
-            </div>
-        </div>
-
-        <div class="card">
             <h2>Search Preferences</h2>
             <div class="form-group">
                 <label>Max Search Results</label>
@@ -984,7 +976,6 @@ body {
         $('qbittorrentPassword').value = config.qBittorrentPassword || '';
         $('downloadPath').value = config.downloadPath || '';
         $('maxConcurrentDownloads').value = config.maxConcurrentDownloads || 3;
-        $('tmdbApiKey').value = config.tmdbApiKey || '';
         $('maxSearchResults').value = config.maxSearchResults || 20;
         $('minSeeders').value = config.minSeeders || 1;
         $('preferredKeywords').value = (config.preferredKeywords || []).join(', ');
@@ -1009,7 +1000,6 @@ body {
             qBittorrentPassword: $('qbittorrentPassword').value,
             downloadPath: $('downloadPath').value,
             maxConcurrentDownloads: Number($('maxConcurrentDownloads').value) || 3,
-            tmdbApiKey: $('tmdbApiKey').value,
             maxSearchResults: Number($('maxSearchResults').value) || 20,
             minSeeders: Number($('minSeeders').value) || 1,
             preferredKeywords: $('preferredKeywords').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean),

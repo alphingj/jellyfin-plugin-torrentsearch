@@ -4,7 +4,7 @@
     "description": "Search for movies and TV shows via Jackett/Prowlarr, download via qBittorrent or embedded MonoTorrent, and auto-sync to Jellyfin library",
     "overview": "Search for movies and TV shows via Jackett/Prowlarr, download via qBittorrent or embedded MonoTorrent, and auto-sync to Jellyfin library",
     "owner": "alphingj",
-    "category": "Metadata",
+    "category": "Download",
     "guid": "8b9e2c4d-7f3a-4d5e-9c1b-2a8f6e4d3c7a",
     "versions": [
       {

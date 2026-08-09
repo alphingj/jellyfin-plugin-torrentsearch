@@ -1,7 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Jellyfin.Plugin.TorrentSearch.Services.Search;
-using Jellyfin.Plugin.TorrentSearch.Services.Metadata;
 using Jellyfin.Plugin.TorrentSearch.Services.Download;
 using Jellyfin.Plugin.TorrentSearch.Services.Library;
 using Jellyfin.Plugin.TorrentSearch.BackgroundServices;
@@ -14,7 +13,6 @@ public static class ServiceRegistrator
     public static void RegisterServices(IServiceCollection services)
     {
         services.AddSingleton<ITorrentSearchService, JackettSearchService>();
-        services.AddSingleton<IMetadataService, TmdbMetadataService>();
         services.AddSingleton<IDownloadManagerService>(sp =>
         {
             var config = Plugin.Instance.Configuration;
@@ -30,6 +28,5 @@ public static class ServiceRegistrator
         services.AddHostedService<HealthCheckService>();
         
         services.AddHttpClient<JackettSearchService>();
-        services.AddHttpClient<TmdbMetadataService>();
     }
 }

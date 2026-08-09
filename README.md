@@ -1,6 +1,6 @@
 # Jellyfin Torrent Search Plugin
 
-A Jellyfin plugin that lets you search for movies and TV shows via Jackett/Prowlarr, download torrents via qBittorrent (or embedded MonoTorrent), and automatically organize them into your Jellyfin library with full metadata.
+A Jellyfin plugin that lets you search for movies and TV shows via Jackett/Prowlarr, download torrents via qBittorrent (or embedded MonoTorrent), and automatically organize them into your Jellyfin library.
 
 ![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11%2B-blue)
 ![.NET](https://img.shields.io/badge/.NET-9.0-purple)
@@ -10,9 +10,8 @@ A Jellyfin plugin that lets you search for movies and TV shows via Jackett/Prowl
 
 - **Search** - Search movies and TV shows via Jackett/Prowlarr (500+ indexers via Torznab API)
 - **Quality Detection** - Automatically detects quality (4K/1080p/720p, BluRay/WEB-DL, x264/x265, HDR, etc.)
-- **Metadata Enrichment** - Fetches full metadata from TMDB (posters, cast, ratings, genres, etc.)
 - **Download** - qBittorrent WebAPI integration (with embedded MonoTorrent fallback for ARM64)
-- **Auto-Organization** - Renames/moves files to Jellyfin naming convention, generates NFO files, downloads artwork
+- **Auto-Organization** - Renames/moves files to Jellyfin naming convention
 - **Library Sync** - Triggers Jellyfin library refresh automatically
 - **Dashboard UI** - Vue 3 + Alpine.js dashboard with search, download queue, and settings
 
@@ -22,19 +21,17 @@ A Jellyfin plugin that lets you search for movies and TV shows via Jackett/Prowl
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Jellyfin Plugin                            │
 ├─────────────────────────────────────────────────────────────────┤
-│  Search (Jackett) ──▶ Metadata (TMDB) ──▶ Download (qBittorrent) │
+│  Search (Jackett) ──▶ Download (qBittorrent) ──▶ Library Sync    │
 │       │                    │                    │                │
 │       ▼                    ▼                    ▼                │
-│  Torznab API          REST API          WebAPI / Embedded       │
-│  500+ indexers        Movie/TV info    MonoTorrent (ARM64)      │
+│  Torznab API          WebAPI / Embedded     Rename + refresh     │
+│  500+ indexers        MonoTorrent (ARM64)   Jellyfin naming      │
 │                                                   │              │
 └───────────────────────────────────────────────────│──────────────┘
                                                      ▼
                               ┌─────────────────────────────────────┐
                               │        Library Sync                 │
                               │  • Rename to Jellyfin convention    │
-                              │  • Generate NFO (movie/TV/episode)  │
-                              │  • Download poster/fanart           │
                               │  • Trigger Jellyfin refresh         │
                               └─────────────────────────────────────┘
 ```
@@ -90,11 +87,6 @@ Navigate to **Dashboard → Torrent Search** and configure:
 | Username/Password | qBittorrent WebUI credentials |
 | Download Path | Where torrents download before organization |
 
-### TMDB
-| Setting | Description |
-|---------|-------------|
-| TMDB API Key | Optional - uses built-in key if empty (rate limited) |
-
 ### Search Preferences
 | Setting | Default |
 |---------|---------|
@@ -136,25 +128,18 @@ Files are organized as:
 **Movies:**
 ```
 /media/movies/
-└── Movie Title (Year) [imdbid-tt1234567] [ReleaseGroup]/
-    ├── Movie Title (Year) [imdbid-tt1234567] [Quality].mkv
-    ├── Movie Title (Year) [imdbid-tt1234567].nfo
-    ├── poster.jpg
-    └── fanart.jpg
+└── Movie Title (Year)/
+    └── Movie Title (Year) [Quality].mkv
 ```
 
 **TV Shows:**
 ```
 /media/tv/
-└── Show Name (Year) [imdbid-tt1234567] [ReleaseGroup]/
+└── Show Name (Year)/
     ├── Season 01/
-    │   ├── Show Name - S01E01 - Episode Title [Quality].mkv
-    │   └── Show Name - S01E01.nfo
+    │   └── Show Name - S01E01 [Quality].mkv
     ├── Season 02/
     │   └── ...
-    ├── tvshow.nfo
-    ├── poster.jpg
-    └── fanart.jpg
 ```
 
 ## Docker Compose (Development)
@@ -218,22 +203,18 @@ Jellyfin.Plugin.TorrentSearch/
 │   ├── Search/
 │   │   ├── ITorrentSearchService.cs
 │   │   └── JackettSearchService.cs    # Torznab/Jackett
-│   ├── Metadata/
-│   │   ├── IMetadataService.cs
-│   │   └── TmdbMetadataService.cs     # TMDB API
 │   ├── Download/
 │   │   ├── IDownloadManagerService.cs
 │   │   ├── QBittorrentDownloadService.cs
 │   │   └── MonoTorrentDownloadService.cs # Embedded fallback
 │   └── Library/
 │       ├── ILibrarySyncService.cs
-│       └── LibrarySyncService.cs      # File org + NFO + refresh
+│       └── LibrarySyncService.cs      # File org + refresh
 ├── BackgroundServices/
 │   └── BackgroundServices.cs      # Download monitor, library scanner
 ├── Helpers/
 │   ├── MediaNamingHelper.cs       # Jellyfin naming + parsing
-│   ├── QualityParser.cs           # Quality detection from filename
-│   └── NfoGenerator.cs            # NFO XML generation
+│   └── QualityParser.cs           # Quality detection from filename
 ├── Models/
 │   └── TorrentModels.cs           # All DTOs
 └── Configuration/
@@ -284,6 +265,5 @@ Distributed under the MIT License. See `LICENSE` for more information.
 - [Jellyfin](https://jellyfin.org/) - Amazing media server
 - [Jackett](https://github.com/Jackett/Jackett) - Torrent indexer proxy
 - [qBittorrent](https://www.qbittorrent.org/) - Torrent client
-- [TMDb](https://www.themoviedb.org/) - Movie/TV metadata
 - [MonoTorrent](https://github.com/alanmcgovern/monotorrent) - Embedded BitTorrent library
 - [Vue.js](https://vuejs.org/) & [Alpine.js](https://alpinejs.dev/) - Dashboard UI
