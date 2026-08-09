@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.3] - 2026-08-09
+### Fixed
+- Plugin DI registration — services now properly register via `IPluginServiceRegistrator` (panel was broken since initial release)
+### Removed
+- Unused `MediatR` and `FluentValidation` package dependencies
+
 ## [1.0.2] - 2026-08-09
 ### Removed
 - TMDB metadata enrichment (posters, cast, ratings, genres)
