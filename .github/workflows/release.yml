@@ -66,7 +66,7 @@ jobs:
         run: |
           VERSION="${{ github.event.release.tag_name }}"
           VERSION="${VERSION#v}"
-          CHECKSUM="${{ needs.release.outputs.md5 }}"
+          CHECKSUM="${{ needs.release.outputs.checksum }}"
           ZIP="Jellyfin.Plugin.TorrentSearch_${{ github.event.release.tag_name }}.zip"
           URL="https://github.com/${{ github.repository }}/releases/download/${{ github.event.release.tag_name }}/$ZIP"
           TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
