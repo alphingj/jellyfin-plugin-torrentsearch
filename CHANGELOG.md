@@ -1,9 +1,11 @@
 # Changelog
 
-## [1.0.1] - 2026-08-09
+## [1.0.2] - 2026-08-09
 ### Removed
 - TMDB metadata enrichment (posters, cast, ratings, genres)
 - NFO file generation and artwork download (auto-organization now renames files only)
+### Changed
+- Drop unused AngleSharp, pin Newtonsoft.Json 13.0.3
 
 ## [1.0.0] - 2026-07-26
 ### Added
