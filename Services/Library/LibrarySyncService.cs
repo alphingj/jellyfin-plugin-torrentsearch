@@ -92,9 +92,9 @@ public class LibrarySyncService : ILibrarySyncService
 
             await RefreshLibraryAsync(GetLibraryId(mediaType), ct);
 
-            return new SyncResult 
-            { 
-                Success = true, 
+            return new SyncResult
+            {
+                Success = true,
                 ItemName = $"Scanned {files.Count} files, {imported} new",
                 CreatedFiles = new List<string>()
             };
@@ -112,16 +112,16 @@ public class LibrarySyncService : ILibrarySyncService
         {
             var plugin = Plugin.Instance;
             if (plugin == null) return false;
-            
+
             var apiUrl = $"{plugin.Configuration.ServerUrl}/Library/Media/Updated";
             var request = new HttpRequestMessage(HttpMethod.Post, apiUrl)
             {
-                Content = new StringContent($"{{\"Updates\":[{{\"Path\":\"{libraryId}\",\"ItemId\":\"{libraryId}\"}}]}}", 
+                Content = new StringContent($"{{\"Updates\":[{{\"Path\":\"{libraryId}\",\"ItemId\":\"{libraryId}\"}}]}}",
                     System.Text.Encoding.UTF8, "application/json")
             };
 
             request.Headers.Add("X-Emby-Token", plugin.Configuration.ApiKey);
-            
+
             using var client = new HttpClient();
             var response = await client.SendAsync(request, ct);
             return response.IsSuccessStatusCode;

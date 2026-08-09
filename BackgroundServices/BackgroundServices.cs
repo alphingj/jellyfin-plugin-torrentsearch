@@ -35,24 +35,24 @@ public class DownloadMonitorService : BackgroundService
             try
             {
                 var downloads = await _downloadService.GetActiveDownloadsAsync(stoppingToken);
-                
+
                 foreach (var download in downloads)
                 {
                     if (download.Progress >= 1.0 && !_completedHashes.Contains(download.Hash))
                     {
                         _completedHashes.Add(download.Hash);
-                        
+
                         var mediaType = download.MediaType;
                         if (mediaType == MediaType.Unknown)
                         {
-                            mediaType = download.Category?.Contains("tv", StringComparison.OrdinalIgnoreCase) == true 
-                                ? MediaType.Series 
+                            mediaType = download.Category?.Contains("tv", StringComparison.OrdinalIgnoreCase) == true
+                                ? MediaType.Series
                                 : MediaType.Movie;
                         }
 
                         await _librarySync.SyncCompletedDownloadAsync(
-                            download.Hash, 
-                            download.SavePath, 
+                            download.Hash,
+                            download.SavePath,
                             mediaType,
                             download.Season,
                             download.Episode,

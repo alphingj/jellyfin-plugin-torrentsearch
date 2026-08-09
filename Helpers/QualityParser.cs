@@ -8,23 +8,23 @@ public class QualityParser
     private static readonly Regex ResolutionRegex = new(
         @"\b(4320p|2160p|1080p|720p|576p|480p|8K|4K|UHD|HDR|REMUX|BLURAY|BDRip|BRRip|WEB-DL|WEBRip|HDTV|PDTV|DSR|SATRip|DVBRip|DVDRip|DVDR|VHSRip|TVRip|HDDVD)\b",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    
+
     private static readonly Regex CodecRegex = new(
         @"\b(x264|x265|h264|h265|HEVC|AVC|MPEG-2|VC-1|XviD|DivX)\b",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    
+
     private static readonly Regex SourceRegex = new(
         @"\b(BluRay|BDRip|BRRip|WEB-DL|WEBRip|WEB|HDTV|PDTV|DSR|SATRip|DVBRip|DVDRip|DVDR|VHSRip|TVRip|HDDVD)\b",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    
+
     private static readonly Regex HdrRegex = new(
         @"\b(HDR|HDR10|HDR10\+|Dolby\s*Vision|DV|HLG)\b",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    
+
     private static readonly Regex AudioRegex = new(
         @"\b(Atmos|TrueHD|DTS-HD|DTS:X|DDP|DD\+|AC3|EAC3|AAC|FLAC|MP3|Opus|DTS)\b",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
-    
+
     private static readonly Regex ReleaseGroupRegex = new(
         @"[-_\.]([A-Za-z0-9]+)$",
         RegexOptions.Compiled);
@@ -32,7 +32,7 @@ public class QualityParser
     public QualityInfo ParseQuality(string filename)
     {
         var quality = new QualityInfo();
-        
+
         var resolutionMatch = ResolutionRegex.Match(filename);
         if (resolutionMatch.Success)
         {
@@ -66,7 +66,7 @@ public class QualityParser
         }
 
         quality.QualityScore = CalculateQualityScore(quality);
-        
+
         return quality;
     }
 
@@ -116,7 +116,7 @@ public class QualityParser
     private int CalculateQualityScore(QualityInfo quality)
     {
         var score = 0;
-        
+
         score += quality.Resolution switch
         {
             "8K" => 1000,

@@ -17,16 +17,16 @@ public static class ServiceRegistrator
         {
             var config = Plugin.Instance.Configuration;
             var logger = sp.GetRequiredService<ILogger<QBittorrentDownloadService>>();
-            
+
             return new QBittorrentDownloadService(config, logger);
         });
         services.AddSingleton<ILibrarySyncService, LibrarySyncService>();
         services.AddSingleton<QualityParser>();
-        
+
         services.AddHostedService<DownloadMonitorService>();
         services.AddHostedService<LibraryScannerService>();
         services.AddHostedService<HealthCheckService>();
-        
+
         services.AddHttpClient<JackettSearchService>();
     }
 }

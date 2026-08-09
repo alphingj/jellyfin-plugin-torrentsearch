@@ -36,7 +36,7 @@ public class QualityInfo
     public string ReleaseGroup { get; set; } = string.Empty;
     public int QualityScore { get; set; }
     public string Badge => GetQualityBadge();
-    
+
     private string GetQualityBadge()
     {
         var parts = new List<string>();

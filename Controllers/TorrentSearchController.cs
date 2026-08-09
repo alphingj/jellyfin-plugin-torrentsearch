@@ -87,8 +87,8 @@ public class TorrentSearchController : ControllerBase
 
         if (string.IsNullOrEmpty(options.SavePath))
         {
-            options.SavePath = options.Category == "tv" 
-                ? _config.TvShowsLibraryPath 
+            options.SavePath = options.Category == "tv"
+                ? _config.TvShowsLibraryPath
                 : _config.MoviesLibraryPath;
         }
 
@@ -140,8 +140,8 @@ public class TorrentSearchController : ControllerBase
     public async Task<SyncResult> SyncLibrary([FromBody] LibrarySyncRequest request, CancellationToken ct = default)
     {
         var mediaType = request.MediaType ?? MediaType.Movie;
-        var libraryPath = mediaType == MediaType.Movie 
-            ? _config.MoviesLibraryPath 
+        var libraryPath = mediaType == MediaType.Movie
+            ? _config.MoviesLibraryPath
             : _config.TvShowsLibraryPath;
 
         return await _librarySync.ScanAndImportAsync(libraryPath, mediaType, ct);

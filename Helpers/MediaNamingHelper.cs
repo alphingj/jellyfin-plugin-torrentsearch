@@ -67,7 +67,7 @@ public static class MediaNamingHelper
     public static QualityInfo ParseQuality(string fileName)
     {
         var quality = new QualityInfo();
-        
+
         var resMatch = QualityRegex.Match(fileName);
         if (resMatch.Success)
         {
@@ -126,7 +126,7 @@ public static class MediaNamingHelper
     private static int CalculateQualityScore(QualityInfo quality)
     {
         var score = 0;
-        
+
         score += quality.Source switch
         {
             "8K" => 1000,

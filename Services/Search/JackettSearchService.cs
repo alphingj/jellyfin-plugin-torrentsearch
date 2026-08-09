@@ -23,7 +23,7 @@ public class JackettSearchService : ITorrentSearchService
         _logger = logger;
         _httpClient = httpClient;
         _qualityParser = qualityParser;
-        
+
         _retryPolicy = Policy
             .HandleResult<HttpResponseMessage>(r => !r.IsSuccessStatusCode)
             .Or<HttpRequestException>()
@@ -40,7 +40,7 @@ public class JackettSearchService : ITorrentSearchService
     {
         var baseUrl = _config.UseProwlarr ? _config.ProwlarrUrl : _config.JackettUrl;
         var apiKey = _config.UseProwlarr ? _config.ProwlarrApiKey : _config.JackettApiKey;
-        
+
         _httpClient.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
         _httpClient.DefaultRequestHeaders.Clear();
         if (!string.IsNullOrEmpty(apiKey))
@@ -86,7 +86,7 @@ public class JackettSearchService : ITorrentSearchService
         {
             var searchType = request.MediaType == MediaType.Movie ? "movie" : "tvsearch";
             var category = request.MediaType == MediaType.Movie ? "2000" : "5000";
-            
+
             var queryParams = new Dictionary<string, string>
             {
                 ["t"] = searchType,
@@ -112,7 +112,7 @@ public class JackettSearchService : ITorrentSearchService
             _logger.LogDebug("Searching Jackett: {Url}", url);
 
             var response = await _retryPolicy.ExecuteAsync(() => _httpClient.GetAsync(url, ct));
-            
+
             if (!response.IsSuccessStatusCode)
             {
                 _logger.LogError("Jackett search failed: {StatusCode} - {Reason}", response.StatusCode, response.ReasonPhrase);
@@ -121,7 +121,7 @@ public class JackettSearchService : ITorrentSearchService
 
             var xmlContent = await response.Content.ReadAsStringAsync(ct);
             results = ParseTorznabXml(xmlContent, request.MediaType);
-            
+
             results = FilterAndRankResults(results, request);
         }
         catch (Exception ex)
@@ -170,7 +170,7 @@ public class JackettSearchService : ITorrentSearchService
                         .FirstOrDefault(a => a.Attribute("name")?.Value == "indexer")?.Attribute("value")?.Value ?? "Unknown";
 
                     var magnetLink = ExtractMagnetLink(item);
-                    
+
                     if (string.IsNullOrEmpty(magnetLink) && !string.IsNullOrEmpty(link) && link.StartsWith("magnet:"))
                     {
                         magnetLink = link;
