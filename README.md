@@ -1,69 +1,36 @@
 # Jellyfin Torrent Search Plugin
 
-A Jellyfin plugin that lets you search for movies and TV shows via Jackett/Prowlarr, download torrents via qBittorrent (or embedded MonoTorrent), and automatically organize them into your Jellyfin library.
+Search Jackett or Prowlarr from Jellyfin, send releases to qBittorrent, and manage downloads. This fork targets Jellyfin 12.4 and includes an administrator dashboard and a Downloads page for signed-in users.
 
-![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11%2B-blue)
-![.NET](https://img.shields.io/badge/.NET-9.0-purple)
+![Jellyfin](https://img.shields.io/badge/Jellyfin-12.4-blue)
+![.NET](https://img.shields.io/badge/.NET-10-purple)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
 ## Features
 
 - **Search** - Search movies and TV shows via Jackett/Prowlarr (500+ indexers via Torznab API)
 - **Quality Detection** - Automatically detects quality (4K/1080p/720p, BluRay/WEB-DL, x264/x265, HDR, etc.)
-- **Download** - qBittorrent WebAPI integration (with embedded MonoTorrent fallback for ARM64)
+- **Download** - qBittorrent Web API integration, with optional Prowlarr routing
 - **Auto-Organization** - Renames/moves files to Jellyfin naming convention
 - **Library Sync** - Triggers Jellyfin library refresh automatically
-- **Dashboard UI** - Vue 3 + Alpine.js dashboard with search, download queue, and settings
+- **Dashboard UI** - Admin search, download queue, and settings, plus a separate Downloads page
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      Jellyfin Plugin                            │
-├─────────────────────────────────────────────────────────────────┤
-│  Search (Jackett) ──▶ Download (qBittorrent) ──▶ Library Sync    │
-│       │                    │                    │                │
-│       ▼                    ▼                    ▼                │
-│  Torznab API          WebAPI / Embedded     Rename + refresh     │
-│  500+ indexers        MonoTorrent (ARM64)   Jellyfin naming      │
-│                                                   │              │
-└───────────────────────────────────────────────────│──────────────┘
-                                                     ▼
-                              ┌─────────────────────────────────────┐
-                              │        Library Sync                 │
-                              │  • Rename to Jellyfin convention    │
-                              │  • Trigger Jellyfin refresh         │
-                              └─────────────────────────────────────┘
-```
+The admin dashboard and Downloads page are embedded HTML, CSS and JavaScript. The plugin sends searches to Jackett (Torznab) or Prowlarr (REST API). Downloads go to qBittorrent directly or through Prowlarr's configured client. Jellyfin handles library refresh.
 
 ## Prerequisites
 
-- **Jellyfin 10.11+**
+- **Jellyfin 12.4** for this fork branch
 - **Jackett** (port 9117) or **Prowlarr** (port 9696) - for torrent searching
-- **qBittorrent** (port 8080) - recommended for downloads
-  - *Alternative:* Embedded MonoTorrent (no external client needed, ARM64 native)
+- **qBittorrent** with the Web UI enabled (default port 8080). Optional API-key authentication requires qBittorrent 5.2 or later.
+
 
 ## Installation
 
-### Option 1: Manual (Recommended)
-1. Download the latest `Jellyfin.Plugin.TorrentSearch.dll` from [Releases](https://github.com/alphingj/jellyfin-plugin-torrentsearch/releases)
-2. Copy to your Jellyfin plugins folder:
-   ```bash
-   # Linux/Docker
-   /config/plugins/Jellyfin.Plugin.TorrentSearch/
-   # Windows
-   C:\ProgramData\jellyfin\plugins\Jellyfin.Plugin.TorrentSearch\
-   ```
-3. Restart Jellyfin
-4. Go to **Dashboard → Torrent Search** to configure
+For this branch, build the package from source with the .NET 10 SDK using the commands under [Building](#building). Copy the plugin DLL and its published runtime dependencies into a dedicated folder under Jellyfin's plugins directory (for example, `/config/plugins/TorrentSearch/` in Docker). Restart Jellyfin and open **Dashboard → Torrent Search**.
 
-### Option 2: From Source
-```bash
-git clone https://github.com/alphingj/jellyfin-plugin-torrentsearch.git
-cd jellyfin-plugin-torrentsearch/Jellyfin.Plugin.TorrentSearch
-dotnet publish -c Release -r linux-x64 --self-contained false
-# Copy bin/Release/net9.0/linux-x64/publish/Jellyfin.Plugin.TorrentSearch.dll to Jellyfin plugins
-```
+The [original project's releases](https://github.com/alphingj/jellyfin-plugin-torrentsearch/releases) are upstream builds. Check their Jellyfin compatibility before installing them.
 
 ## Configuration
 
@@ -81,10 +48,13 @@ Navigate to **Dashboard → Torrent Search** and configure:
 ### Torrent Client
 | Setting | Description |
 |---------|-------------|
-| Client Type | qBittorrent (recommended) or MonoTorrent (embedded) |
+| Client Type | qBittorrent is the registered download service in this branch |
 | qBittorrent URL | `http://localhost:8080` |
 | Username/Password | qBittorrent WebUI credentials |
-| Download Path | Where torrents download before organization |
+| qBittorrent API Key | Optional. Generate a key under **qBittorrent → Settings → Web UI → API Key** (5.2+), enter it in the plugin, save, and restart Jellyfin. |
+| Download Path | Stored setting. Actual destination comes from the download dialog or the client routing. |
+| Max Concurrent Downloads | Stored setting (default 3). Configure actual queue limits in qBittorrent. |
+| Ask for the qBittorrent category before downloading | Enabled by default. In the admin search, turn it off to use Prowlarr's download-client category mapping for Prowlarr releases. |
 
 ### Search Preferences
 | Setting | Default |
@@ -94,11 +64,22 @@ Navigate to **Dashboard → Torrent Search** and configure:
 | Preferred Keywords | `1080p,x264,x265,hevc` |
 | Excluded Keywords | `cam,ts,tc,scr,dvdscr,r5` |
 
+#### Prowlarr search cards
+
+With Prowlarr enabled, open **Custom search categories** in the plugin settings:
+
+- **Movies** and **TV Shows** start with Prowlarr categories **Movies (2000)** and **TV (5000)**. You can rename or hide either card and change its category mapping.
+- Select **Add category** to create a search card with your own name, such as **Music** or **Documentaries**. You can also enable season and episode fields on a custom card.
+- Each card can search multiple Prowlarr categories and exclude categories. For example, select **TV (5000)** and exclude **TV/Documentary (5080)** to include general TV releases while filtering out releases marked as documentaries.
+
+Save the settings to update the cards in the admin search.
+
 ### Library Paths
 | Setting | Default |
 |---------|---------|
 | Movies Path | `/media/movies` |
 | TV Shows Path | `/media/tv` |
+| Automatically import completed downloads (direct clients) | Enabled by default. The direct-client monitor skips Prowlarr mode. |
 | Auto Refresh | Enabled |
 | Scan Interval | 5 minutes |
 
@@ -112,12 +93,11 @@ Navigate to **Dashboard → Torrent Search** and configure:
 5. Click **Download** → confirm path/category → torrent added to client
 
 ### Download Queue
-- **Torrent Search → Downloads tab** shows active downloads
-- Progress bar, speed, seeders/peers, ETA
-- Pause/Resume/Remove controls
+- **Torrent Search → Downloads** lists qBittorrent torrents and offers an active-download filter.
+- The signed-in **Downloads** page lists incomplete torrents, including paused ones, with live progress, speed, and owner. Users can pause, resume, or remove their assigned torrents. Administrators can manage all entries. Unassigned torrents appear as **System**. Removing an entry here keeps downloaded files.
 
 ### Library Sync
-- Automatic: After download completes, files are organized and Jellyfin refreshed
+- Automatic: Direct-client import and the optional [completion hook](#optional-library-refresh) are configured separately. The hook can also refresh media added through Prowlarr.
 - Manual: **Torrent Search → Library** tab → "Scan Movies" / "Scan TV Shows"
 
 ## Jellyfin Naming Convention
@@ -146,7 +126,7 @@ Files are organized as:
 ```yaml
 services:
   jellyfin:
-    image: jellyfin/jellyfin:latest
+    image: jellyfin/jellyfin:12.4.0
     volumes:
       - ./jellyfin-config:/config
       - ./plugins:/config/plugins
@@ -166,6 +146,7 @@ services:
     volumes:
       - ./qbittorrent-config:/config
       - ./downloads:/downloads
+      - ./media:/media
     ports:
       - "8080:8080"
     environment:
@@ -174,19 +155,13 @@ services:
 
 ## Building
 
+With the .NET 10 SDK installed:
+
 ```bash
-# Prerequisites: .NET 9.0 SDK
-git clone https://github.com/alphingj/jellyfin-plugin-torrentsearch.git
-cd jellyfin-plugin-torrentsearch/Jellyfin.Plugin.TorrentSearch
-
-# Debug build
-dotnet build
-
-# Release build (for distribution)
+git clone --branch jellyfin-12.4 https://github.com/SnakyJake/jellyfin-plugin-torrentsearch.git
+cd jellyfin-plugin-torrentsearch
+dotnet build -c Release
 dotnet publish -c Release -o ./publish
-
-# Run tests (when added)
-dotnet test
 ```
 
 ## Project Structure
@@ -197,27 +172,29 @@ Jellyfin.Plugin.TorrentSearch/
 ├── PluginConfiguration.cs         # All user settings
 ├── ServiceRegistrator.cs          # DI registration
 ├── Controllers/
-│   └── TorrentSearchController.cs # REST API endpoints
+│   ├── TorrentSearchController.cs # Administrator API
+│   └── UserDownloadsController.cs # Signed-in downloads API and page
 ├── Services/
 │   ├── Search/
 │   │   ├── ITorrentSearchService.cs
-│   │   └── JackettSearchService.cs    # Torznab/Jackett
+│   │   └── JackettSearchService.cs    # Jackett and Prowlarr searches
 │   ├── Download/
 │   │   ├── IDownloadManagerService.cs
-│   │   ├── QBittorrentDownloadService.cs
-│   │   └── MonoTorrentDownloadService.cs # Embedded fallback
+│   │   └── QBittorrentDownloadService.cs
 │   └── Library/
 │       ├── ILibrarySyncService.cs
 │       └── LibrarySyncService.cs      # File org + refresh
 ├── BackgroundServices/
-│   └── BackgroundServices.cs      # Download monitor, library scanner
+│   ├── BackgroundServices.cs      # Download monitor, scanner and health checks
+│   └── CompletedMediaRefresh.cs   # Completion notification queue
 ├── Helpers/
 │   ├── MediaNamingHelper.cs       # Jellyfin naming + parsing
 │   └── QualityParser.cs           # Quality detection from filename
 ├── Models/
 │   └── TorrentModels.cs           # All DTOs
 └── Configuration/
-    ├── config.html                # Vue 3 + Alpine.js dashboard
+    ├── config.html                # Administrator dashboard
+    ├── downloads.html             # Signed-in Downloads page
     └── config.css                 # Embedded styling
 ```
 
@@ -229,9 +206,11 @@ Jellyfin.Plugin.TorrentSearch/
 | GET | `/TorrentSearch/Search/Show` | Search TV shows |
 | POST | `/TorrentSearch/Search` | Advanced search |
 | GET | `/TorrentSearch/Search/Autocomplete` | Search suggestions |
-| POST | `/TorrentSearch/Download/Start` | Start magnet download |
+| GET | `/TorrentSearch/Search/Categories` | List Prowlarr search categories |
+| GET | `/TorrentSearch/Download/Categories` | List qBittorrent destination categories |
+| POST | `/TorrentSearch/Download/Start` | Start a Prowlarr release or magnet download |
 | POST | `/TorrentSearch/Download/AddTorrent` | Add .torrent file |
-| GET | `/TorrentSearch/Downloads` | List active downloads |
+| GET | `/TorrentSearch/Downloads` | List qBittorrent downloads |
 | GET | `/TorrentSearch/Downloads/{hash}` | Get download status |
 | POST | `/TorrentSearch/Downloads/{hash}/Pause` | Pause download |
 | POST | `/TorrentSearch/Downloads/{hash}/Resume` | Resume download |
@@ -240,6 +219,17 @@ Jellyfin.Plugin.TorrentSearch/
 | POST | `/TorrentSearch/Library/Refresh` | Refresh Jellyfin library |
 | GET | `/TorrentSearch/Config/TestIndexer` | Test Jackett connection |
 | GET | `/TorrentSearch/Config/TestClient` | Test qBittorrent connection |
+
+The routes above require administrator access. The Downloads page is served at `GET /TorrentSearch/UserDownloads/Page`. Its API requires a Jellyfin sign-in:
+
+| Method | Path under `/TorrentSearch/UserDownloads` | Description |
+|---|---|---|
+| GET | `/Search` | Search Prowlarr across categories |
+| GET | `/Status` | Check whether Prowlarr reports an indexer issue |
+| POST | `/Start` | Send a selected release to Prowlarr |
+| GET | Base path | List incomplete torrents and their owners |
+| POST | `/{hash}/Pause`, `/{hash}/Resume` | Pause or resume a torrent the caller can manage |
+| DELETE | `/{hash}` | Remove a torrent the caller can manage, preserving its files |
 
 ## Contributing
 
@@ -253,11 +243,15 @@ Jellyfin.Plugin.TorrentSearch/
 
 Distributed under the MIT License. See `LICENSE` for more information.
 
-## Author
+## Authors
 
 **alphingj**
 - GitHub: [@alphingj](https://github.com/alphingj)
 - LinkedIn: [alphingj](https://in.linkedin.com/in/alphingj)
+
+**Jakob Heinemann**
+- GitHub: [@SnakyJake](https://github.com/SnakyJake)
+- Jellyfin 12.4 port, Prowlarr integration, and Downloads interface
 
 ## Acknowledgments
 
@@ -265,11 +259,9 @@ Distributed under the MIT License. See `LICENSE` for more information.
 - [Jackett](https://github.com/Jackett/Jackett) - Torrent indexer proxy
 - [qBittorrent](https://www.qbittorrent.org/) - Torrent client
 - [MonoTorrent](https://github.com/alanmcgovern/monotorrent) - Embedded BitTorrent library
-- [Vue.js](https://vuejs.org/) & [Alpine.js](https://alpinejs.dev/) - Dashboard UI
+
 
 ## Jellyfin 12.4 fork
-
-This branch targets Jellyfin 12.4 and builds with the .NET 10 SDK. The installation links above refer to upstream releases. To test this branch, build it with `dotnet build Jellyfin.Plugin.TorrentSearch.csproj -c Release` and install the DLL with its runtime dependencies.
 
 - Configurable Prowlarr search cards with category inclusion and exclusion.
 - A signed-in Downloads page at `/TorrentSearch/UserDownloads/Page` with search, local library matches, and live download progress.
@@ -310,7 +302,3 @@ If Jellyfin uses a base URL such as `/jellyfin`, prefix the link path accordingl
 For library refresh after download or extraction, set `CompletedDownloadQueuePath` in the plugin XML to a shared absolute directory. After completion, the hook writes the media directory as seen by Jellyfin to a temporary UTF-8 file and renames it with a `.ready` suffix. Leave the setting empty to disable this integration.
 
 See the [changelog](CHANGELOG.md) for details.
-
-### Fork contributor
-
-**Jakob Heinemann** contributed the Jellyfin 12.4 port, Prowlarr integration, and Downloads interface.
