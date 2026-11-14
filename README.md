@@ -1,269 +1,40 @@
-# Jellyfin Torrent Search Plugin
+# Torrent Search for Jellyfin
 
-A Jellyfin plugin that lets you search for movies and TV shows via Jackett/Prowlarr, download torrents via qBittorrent (or embedded MonoTorrent), and automatically organize them into your Jellyfin library.
+Search Prowlarr from Jellyfin, send selected releases to qBittorrent, and manage current downloads. The plugin includes an administrator dashboard and a separate Downloads page for signed-in users. The interface defaults to English and uses German when the browser language is German.
 
-![Jellyfin](https://img.shields.io/badge/Jellyfin-10.11%2B-blue)
-![.NET](https://img.shields.io/badge/.NET-9.0-purple)
-![License](https://img.shields.io/badge/License-MIT-green)
+## Requirements
 
-## Features
+- Jellyfin 12.4 for this development build
+- Prowlarr and its API key for category-based search
+- qBittorrent with its Web UI API enabled. API-key authentication requires qBittorrent 5.2 or later.
 
-- **Search** - Search movies and TV shows via Jackett/Prowlarr (500+ indexers via Torznab API)
-- **Quality Detection** - Automatically detects quality (4K/1080p/720p, BluRay/WEB-DL, x264/x265, HDR, etc.)
-- **Download** - qBittorrent WebAPI integration (with embedded MonoTorrent fallback for ARM64)
-- **Auto-Organization** - Renames/moves files to Jellyfin naming convention
-- **Library Sync** - Triggers Jellyfin library refresh automatically
-- **Dashboard UI** - Vue 3 + Alpine.js dashboard with search, download queue, and settings
+## Build and install
 
-## Architecture
+Build with the .NET 10 SDK:
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      Jellyfin Plugin                            │
-├─────────────────────────────────────────────────────────────────┤
-│  Search (Jackett) ──▶ Download (qBittorrent) ──▶ Library Sync    │
-│       │                    │                    │                │
-│       ▼                    ▼                    ▼                │
-│  Torznab API          WebAPI / Embedded     Rename + refresh     │
-│  500+ indexers        MonoTorrent (ARM64)   Jellyfin naming      │
-│                                                   │              │
-└───────────────────────────────────────────────────│──────────────┘
-                                                     ▼
-                              ┌─────────────────────────────────────┐
-                              │        Library Sync                 │
-                              │  • Rename to Jellyfin convention    │
-                              │  • Trigger Jellyfin refresh         │
-                              └─────────────────────────────────────┘
+```sh
+dotnet build Jellyfin.Plugin.TorrentSearch.csproj -c Release
 ```
 
-## Prerequisites
+For manual installation, place the plugin DLL and its required runtime dependencies in a dedicated subdirectory of Jellyfin's plugins directory, then restart Jellyfin. Keep the existing plugin directory backed up when upgrading. The upstream repository manifest still points to upstream releases.
 
-- **Jellyfin 10.11+**
-- **Jackett** (port 9117) or **Prowlarr** (port 9696) - for torrent searching
-- **qBittorrent** (port 8080) - recommended for downloads
-  - *Alternative:* Embedded MonoTorrent (no external client needed, ARM64 native)
+## Configure
 
-## Installation
+Open **Dashboard → Plugins → Torrent Search**. Enter the Prowlarr URL and API key, and configure the qBittorrent URL and authentication. Use addresses reachable from the Jellyfin server. Keep API keys in plugin settings.
 
-### Option 1: Manual (Recommended)
-1. Download the latest `Jellyfin.Plugin.TorrentSearch.dll` from [Releases](https://github.com/alphingj/jellyfin-plugin-torrentsearch/releases)
-2. Copy to your Jellyfin plugins folder:
-   ```bash
-   # Linux/Docker
-   /config/plugins/Jellyfin.Plugin.TorrentSearch/
-   
-   # Windows
-   C:\ProgramData\jellyfin\plugins\Jellyfin.Plugin.TorrentSearch\
-   ```
-3. Restart Jellyfin
-4. Go to **Dashboard → Torrent Search** to configure
+- **Search categories:** Movies and TV Shows can be renamed, reassigned, or hidden. Custom cards can include multiple Prowlarr categories, exclude categories, and expose season and episode fields. Latest releases depends on whether the indexer supports queries without a title.
+- **Download routing:** Disable the category prompt to hand the selected release to Prowlarr and use its configured download-client mapping.
+- **Downloads page:** Open `/TorrentSearch/UserDownloads/Page` on the Jellyfin server. To add a navigation entry, configure a [Jellyfin Web menu link](https://jellyfin.org/docs/general/clients/web-config/#custom-menu-links) pointing to that path. Client support for these links varies.
+- **Library search:** The Downloads page and admin search show matching local library items alongside the search workflow. The Downloads page can label matching movies and series. A series match does not establish that a particular episode is present.
+- **Queue permissions:** Administrators can manage all shown downloads. Other users can manage torrents assigned to them after a start from the Downloads page. Torrents without an established owner appear as **System**. Removing a torrent through the Downloads page preserves its files.
 
-### Option 2: From Source
-```bash
-git clone https://github.com/alphingj/jellyfin-plugin-torrentsearch.git
-cd jellyfin-plugin-torrentsearch/Jellyfin.Plugin.TorrentSearch
-dotnet publish -c Release -r linux-x64 --self-contained false
-# Copy bin/Release/net9.0/linux-x64/publish/Jellyfin.Plugin.TorrentSearch.dll to Jellyfin plugins
-```
+## Refresh libraries after downloads
 
-## Configuration
+Set `CompletedDownloadQueuePath` in the plugin's XML configuration to an absolute directory writable by Jellyfin and the download completion hook. Create the directory before enabling the hook. After the download or extraction succeeds, have the hook write the completed media directory (as Jellyfin sees it) to a temporary UTF-8 file in the queue, then rename it with the `.ready` suffix. Jellyfin consumes these notifications for existing paths under configured libraries. Leave the setting empty to disable the queue.
 
-Navigate to **Dashboard → Torrent Search** and configure:
+## Credits and license
 
-### Indexer (Jackett/Prowlarr)
-| Setting | Description |
-|---------|-------------|
-| Jackett URL | `http://localhost:9117` (default) |
-| Jackett API Key | From Jackett UI |
-| Use Prowlarr | Toggle for Prowlarr instead |
-| Prowlarr URL | `http://localhost:9696` |
-| Prowlarr API Key | From Prowlarr UI |
+- **alphingj** ([@alphingj](https://github.com/alphingj)) — original author and upstream maintainer
+- **Jakob Heinemann** — contributor to the Jellyfin 12.4 port, Prowlarr integration, and Downloads interface
 
-### Torrent Client
-| Setting | Description |
-|---------|-------------|
-| Client Type | qBittorrent (recommended) or MonoTorrent (embedded) |
-| qBittorrent URL | `http://localhost:8080` |
-| Username/Password | qBittorrent WebUI credentials |
-| Download Path | Where torrents download before organization |
-
-### Search Preferences
-| Setting | Default |
-|---------|---------|
-| Max Results | 20 |
-| Min Seeders | 1 |
-| Preferred Keywords | `1080p,x264,x265,hevc` |
-| Excluded Keywords | `cam,ts,tc,scr,dvdscr,r5` |
-
-### Library Paths
-| Setting | Default |
-|---------|---------|
-| Movies Path | `/media/movies` |
-| TV Shows Path | `/media/tv` |
-| Auto Refresh | Enabled |
-| Scan Interval | 5 minutes |
-
-## Usage
-
-### Search & Download
-1. Go to **Torrent Search → Search tab**
-2. Select **Movies** or **TV Shows**
-3. Enter query (e.g., "The Matrix 1999")
-4. Results show: title, year, quality badges, seeders/leechers, size, indexer
-5. Click **Download** → confirm path/category → torrent added to client
-
-### Download Queue
-- **Torrent Search → Downloads tab** shows active downloads
-- Progress bar, speed, seeders/peers, ETA
-- Pause/Resume/Remove controls
-
-### Library Sync
-- Automatic: After download completes, files are organized and Jellyfin refreshed
-- Manual: **Torrent Search → Library** tab → "Scan Movies" / "Scan TV Shows"
-
-## Jellyfin Naming Convention
-
-Files are organized as:
-
-**Movies:**
-```
-/media/movies/
-└── Movie Title (Year)/
-    └── Movie Title (Year) [Quality].mkv
-```
-
-**TV Shows:**
-```
-/media/tv/
-└── Show Name (Year)/
-    ├── Season 01/
-    │   └── Show Name - S01E01 [Quality].mkv
-    ├── Season 02/
-    │   └── ...
-```
-
-## Docker Compose (Development)
-
-```yaml
-services:
-  jellyfin:
-    image: jellyfin/jellyfin:latest
-    volumes:
-      - ./jellyfin-config:/config
-      - ./plugins:/config/plugins
-      - ./media:/media
-    ports:
-      - "8096:8096"
-
-  jackett:
-    image: lscr.io/linuxserver/jackett:latest
-    volumes:
-      - ./jackett-config:/config
-    ports:
-      - "9117:9117"
-
-  qbittorrent:
-    image: lscr.io/linuxserver/qbittorrent:latest
-    volumes:
-      - ./qbittorrent-config:/config
-      - ./downloads:/downloads
-    ports:
-      - "8080:8080"
-    environment:
-      - WEBUI_PORT=8080
-```
-
-## Building
-
-```bash
-# Prerequisites: .NET 9.0 SDK
-git clone https://github.com/alphingj/jellyfin-plugin-torrentsearch.git
-cd jellyfin-plugin-torrentsearch/Jellyfin.Plugin.TorrentSearch
-
-# Debug build
-dotnet build
-
-# Release build (for distribution)
-dotnet publish -c Release -o ./publish
-
-# Run tests (when added)
-dotnet test
-```
-
-## Project Structure
-
-```
-Jellyfin.Plugin.TorrentSearch/
-├── Plugin.cs                      # Main plugin entry (IHasWebPages)
-├── PluginConfiguration.cs         # All user settings
-├── ServiceRegistrator.cs          # DI registration
-├── Controllers/
-│   └── TorrentSearchController.cs # REST API endpoints
-├── Services/
-│   ├── Search/
-│   │   ├── ITorrentSearchService.cs
-│   │   └── JackettSearchService.cs    # Torznab/Jackett
-│   ├── Download/
-│   │   ├── IDownloadManagerService.cs
-│   │   ├── QBittorrentDownloadService.cs
-│   │   └── MonoTorrentDownloadService.cs # Embedded fallback
-│   └── Library/
-│       ├── ILibrarySyncService.cs
-│       └── LibrarySyncService.cs      # File org + refresh
-├── BackgroundServices/
-│   └── BackgroundServices.cs      # Download monitor, library scanner
-├── Helpers/
-│   ├── MediaNamingHelper.cs       # Jellyfin naming + parsing
-│   └── QualityParser.cs           # Quality detection from filename
-├── Models/
-│   └── TorrentModels.cs           # All DTOs
-└── Configuration/
-    ├── config.html                # Vue 3 + Alpine.js dashboard
-    └── config.css                 # Embedded styling
-```
-
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/TorrentSearch/Search/Movie` | Search movies |
-| GET | `/TorrentSearch/Search/Show` | Search TV shows |
-| POST | `/TorrentSearch/Search` | Advanced search |
-| GET | `/TorrentSearch/Search/Autocomplete` | Search suggestions |
-| POST | `/TorrentSearch/Download/Start` | Start magnet download |
-| POST | `/TorrentSearch/Download/AddTorrent` | Add .torrent file |
-| GET | `/TorrentSearch/Downloads` | List active downloads |
-| GET | `/TorrentSearch/Downloads/{hash}` | Get download status |
-| POST | `/TorrentSearch/Downloads/{hash}/Pause` | Pause download |
-| POST | `/TorrentSearch/Downloads/{hash}/Resume` | Resume download |
-| DELETE | `/TorrentSearch/Downloads/{hash}` | Remove download |
-| POST | `/TorrentSearch/Library/Sync` | Trigger library scan |
-| POST | `/TorrentSearch/Library/Refresh` | Refresh Jellyfin library |
-| GET | `/TorrentSearch/Config/TestIndexer` | Test Jackett connection |
-| GET | `/TorrentSearch/Config/TestClient` | Test qBittorrent connection |
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-Distributed under the MIT License. See `LICENSE` for more information.
-
-## Author
-
-**alphingj**
-- GitHub: [@alphingj](https://github.com/alphingj)
-- LinkedIn: [alphingj](https://in.linkedin.com/in/alphingj)
-
-## Acknowledgments
-
-- [Jellyfin](https://jellyfin.org/) - Amazing media server
-- [Jackett](https://github.com/Jackett/Jackett) - Torrent indexer proxy
-- [qBittorrent](https://www.qbittorrent.org/) - Torrent client
-- [MonoTorrent](https://github.com/alanmcgovern/monotorrent) - Embedded BitTorrent library
-- [Vue.js](https://vuejs.org/) & [Alpine.js](https://alpinejs.dev/) - Dashboard UI
+Distributed under the [MIT License](LICENSE).

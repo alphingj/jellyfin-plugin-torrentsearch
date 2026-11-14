@@ -1,3 +1,4 @@
+using System.Net.Http.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Jellyfin.Plugin.TorrentSearch.Models;
@@ -8,8 +9,9 @@ using Jellyfin.Plugin.TorrentSearch.Services.Library;
 namespace Jellyfin.Plugin.TorrentSearch.Controllers;
 
 [ApiController]
+[ApiExplorerSettings(IgnoreApi = true)]
 [Route("TorrentSearch")]
-[Authorize(Policy = "RequiresAdmin")]
+[Authorize(Policy = MediaBrowser.Common.Api.Policies.RequiresElevation)]
 public class TorrentSearchController : ControllerBase
 {
     private readonly ITorrentSearchService _searchService;
@@ -47,15 +49,15 @@ public class TorrentSearchController : ControllerBase
     }
 
     [HttpGet("Search/Movie")]
-    public async Task<SearchResult> SearchMovies(string query, int year = 0, CancellationToken ct = default)
+    public async Task<SearchResult> SearchMovies(string? query = null, int year = 0, CancellationToken ct = default)
     {
-        return await _searchService.SearchMoviesAsync(query, year, ct);
+        return await _searchService.SearchMoviesAsync(query ?? string.Empty, year, ct);
     }
 
     [HttpGet("Search/Show")]
-    public async Task<SearchResult> SearchShows(string query, int season = 0, int episode = 0, CancellationToken ct = default)
+    public async Task<SearchResult> SearchShows(string? query = null, int season = 0, int episode = 0, CancellationToken ct = default)
     {
-        return await _searchService.SearchShowsAsync(query, season, episode, ct);
+        return await _searchService.SearchShowsAsync(query ?? string.Empty, season, episode, ct);
     }
 
     [HttpPost("Search")]
@@ -63,6 +65,14 @@ public class TorrentSearchController : ControllerBase
     {
         return await _searchService.SearchAsync(request, ct);
     }
+
+    [HttpGet("Search/Categories")]
+    public Task<IReadOnlyList<SearchCategory>> GetSearchCategories(CancellationToken ct)
+        => _searchService.GetCategoriesAsync(ct);
+
+    [HttpGet("Download/Categories")]
+    public Task<IReadOnlyList<string>> GetDownloadCategories(CancellationToken ct)
+        => _downloadService.GetCategoriesAsync(ct);
 
     [HttpGet("Search/Autocomplete")]
     public async Task<List<string>> SearchAutocomplete(string query, CancellationToken ct = default)
@@ -80,16 +90,38 @@ public class TorrentSearchController : ControllerBase
     [HttpPost("Download/Start")]
     public async Task<DownloadResult> StartDownload([FromBody] DownloadOptions options, CancellationToken ct = default)
     {
+        if (_config.UseProwlarr && options.IndexerId > 0 && !string.IsNullOrWhiteSpace(options.ReleaseGuid))
+        {
+            if (!_config.AskDownloadCategory)
+            {
+                using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+                using var request = new HttpRequestMessage(HttpMethod.Post, _config.ProwlarrUrl.TrimEnd('/') + "/api/v1/search");
+                request.Headers.Add("X-Api-Key", _config.ProwlarrApiKey);
+                request.Content = JsonContent.Create(new { guid = options.ReleaseGuid, indexerId = options.IndexerId });
+                using var grab = await client.SendAsync(request, ct);
+                return new DownloadResult
+                {
+                    Success = grab.IsSuccessStatusCode,
+                    ErrorMessage = grab.IsSuccessStatusCode ? string.Empty : $"Prowlarr returned HTTP {(int)grab.StatusCode}."
+                };
+            }
+
+            using var response = await _searchService.GetReleaseAsync(options.IndexerId, options.ReleaseGuid, ct);
+            if (response?.Headers.Location is { Scheme: "magnet" } magnet)
+            {
+                options.MagnetLink = magnet.AbsoluteUri;
+                return await _downloadService.AddMagnetAsync(options, ct);
+            }
+
+            if (response?.IsSuccessStatusCode != true)
+                return new DownloadResult { ErrorMessage = "Could not retrieve the torrent from Prowlarr. Search again if the result has expired." };
+
+            return await _downloadService.AddTorrentFileAsync(await response.Content.ReadAsByteArrayAsync(ct), options, ct);
+        }
+
         if (string.IsNullOrEmpty(options.MagnetLink))
         {
             return new DownloadResult { Success = false, ErrorMessage = "Magnet link is required" };
-        }
-
-        if (string.IsNullOrEmpty(options.SavePath))
-        {
-            options.SavePath = options.Category == "tv"
-                ? _config.TvShowsLibraryPath
-                : _config.MoviesLibraryPath;
         }
 
         return await _downloadService.AddMagnetAsync(options, ct);
@@ -109,7 +141,7 @@ public class TorrentSearchController : ControllerBase
     [HttpGet("Downloads")]
     public async Task<List<DownloadStatus>> GetActiveDownloads(CancellationToken ct = default)
     {
-        return await _downloadService.GetActiveDownloadsAsync(ct);
+        return await _downloadService.GetDownloadsAsync(ct);
     }
 
     [HttpGet("Downloads/{hash}")]
