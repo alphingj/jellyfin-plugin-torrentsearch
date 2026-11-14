@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Torrent Search</title>
+<style>
+    body { color-scheme: dark; background: #101418; color: #edf3f7; font: 1rem system-ui; margin: 0; }
+    main { max-width: 54rem; margin: 2rem auto; padding: 0 1rem; }
+    form, li { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+    form[hidden] { display: none; }
+    input, button { font: inherit; padding: .65rem; border-radius: .4rem; }
+    input { flex: 1; min-width: 0; }
+    ul { padding: 0; list-style: none; }
+    li { background: #202830; padding: 1rem; margin-block: .5rem; border-radius: .5rem; overflow-wrap: anywhere; }
+    li strong { flex-basis: 100%; }
+    li progress { flex-basis: 100%; height: .65rem; accent-color: #4ecdc4; }
+    #tracker-status { padding: .75rem 1rem; background: #382b17; color: #ffe3ae; border-radius: .5rem; }
+</style>
+<main>
+    <h1 data-i18n>Search for content to download</h1>
+    <p id="tracker-status" role="status" hidden></p>
+    <form hidden>
+        <input type="search" required maxlength="200" aria-label="Title" placeholder="Title">
+        <button data-i18n>Search</button>
+    </form>
+    <section id="local-results" hidden>
+        <h2 data-i18n>Already in your library</h2>
+        <ul></ul>
+    </section>
+    <h2 data-i18n>Current downloads</h2>
+    <p id="downloads-status" role="status"></p>
+    <ul></ul>
+</main>
+<script>
+    const german = /^de(?:-|$)/i.test(navigator.language);
+    const translations = {
+    "Search for content to download": "Suche nach Inhalten zum Herunterladen",
+    "Title": "Titel",
+    "Search": "Suchen",
+    "Already in your library": "Bereits in deiner Bibliothek",
+    "Current downloads": "Aktuelle Downloads",
+    "Library search failed.": "Bibliothekssuche fehlgeschlagen.",
+    "Prowlarr reports an indexer issue. Search results may be missing.": "Prowlarr meldet eine Tracker-Störung. Suchergebnisse können fehlen.",
+    "Prowlarr is unavailable. Library search is still available.": "Prowlarr ist gerade nicht erreichbar. Die Bibliothekssuche ist weiterhin verfügbar.",
+    "Prowlarr status is unavailable.": "Der Prowlarr-Status ist gerade nicht abrufbar.",
+    "qBittorrent has not reported the new status yet. Reload the page.": "qBittorrent hat den neuen Status noch nicht gemeldet. Lade die Seite erneut.",
+    "No current downloads": "Keine aktuellen Downloads",
+    "Search results": "Suchergebnisse",
+    "Series already in library": "Serie vorhanden",
+    "Already available": "Schon vorhanden",
+    "Download": "Herunterladen",
+    "Download failed": "Download fehlgeschlagen",
+    "Download progress": "Downloadfortschritt",
+    "Started by": "Gestartet von",
+    "Resume": "Fortsetzen",
+    "Download action failed.": "Die Download-Aktion ist fehlgeschlagen.",
+    "Remove": "Entfernen",
+    "Remove torrent? Downloaded files will be kept.": "Torrent entfernen? Dateien bleiben erhalten.",
+    "Removal failed.": "Entfernen fehlgeschlagen.",
+    "No results found.": "Keine Einträge gefunden.",
+    "Request failed": "Abruf fehlgeschlagen",
+    "Open this page from a signed-in Jellyfin session.": "Öffne die Seite aus einer angemeldeten Jellyfin-Sitzung."
+};
+    const t = text => german ? translations[text] ?? text : text;
+    document.documentElement.lang = german ? 'de' : 'en';
+    document.querySelectorAll('[data-i18n]').forEach(element => {
+        element.textContent = t(element.textContent);
+    });
+    const searchField = document.querySelector('input[type="search"]');
+    searchField.placeholder = t('Title');
+    searchField.setAttribute('aria-label', t('Title'));
+    let viewVersion = 0;
+    let showingSearch = false;
+    let refreshing = false;
+    let renderedQueue = null;
+    const localSection = document.querySelector('#local-results');
+    const localList = localSection.querySelector('ul');
+    const heading = document.querySelector('main > h2');
+    const form = document.querySelector('form');
+    const status = document.querySelector('#downloads-status');
+    const list = document.querySelector('main > ul');
+    document.title = 'Downloads';
+    let token, userId;
+    try {
+        const servers = JSON.parse(localStorage.getItem('jellyfin_credentials'))?.Servers || [];
+        const server = servers.find(server => server.AccessToken &&
+            [server.ManualAddress, server.LocalAddress, server.RemoteAddress].some(address => {
+                try { return new URL(address).origin === location.origin; }
+                catch { return false; }
+            }));
+        token = server?.AccessToken;
+        userId = server?.UserId;
+    } catch {}
+
+    async function request(path, method = 'GET', body) {
+        const response = await fetch('../' + path, {
+            method,
+            headers: { Authorization: 'MediaBrowser Token="' + token + '"', 'Content-Type': 'application/json' },
+            body: body === undefined ? undefined : JSON.stringify(body)
+        });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response.json();
+    }
+
+    async function loadLibrary(query, version) {
+        localSection.hidden = true;
+        localList.replaceChildren();
+        try {
+            const params = new URLSearchParams({
+                searchTerm: query, recursive: 'true', isPlaceHolder: 'false',
+                includeItemTypes: 'Movie,Series,MusicAlbum', limit: '20'
+            });
+            if (userId) params.set('userId', userId);
+            const data = await request('../Items?' + params);
+            if (version !== viewVersion) return;
+            for (const item of data.Items ?? data.items ?? []) {
+                const row = document.createElement('li');
+                const link = document.createElement('a');
+                const params = new URLSearchParams({ id: item.Id ?? item.id });
+                link.href = '../../web/#/details?' + params;
+                const year = item.ProductionYear ?? item.productionYear;
+                link.textContent = (item.Name ?? item.name) + (year ? ' (' + year + ')' : '');
+                row.append(link);
+                localList.append(row);
+            }
+            localSection.hidden = !localList.children.length;
+            return data.Items ?? data.items ?? [];
+        } catch {
+            if (version !== viewVersion) return;
+            const row = document.createElement('li');
+            row.textContent = t('Library search failed.');
+            localList.replaceChildren(row);
+            localSection.hidden = false;
+        }
+    }
+
+    function localMatch(title, items) {
+        const normalize = value => value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+        const release = normalize(title);
+        return items.find(item => {
+            const name = normalize(item.Name ?? item.name ?? '');
+            const type = item.Type ?? item.type;
+            const year = item.ProductionYear ?? item.productionYear;
+            if (!name) return false;
+            if (type === 'Movie' && year) return (release + ' ').startsWith(name + ' ' + year + ' ');
+            if (type === 'Series' && release.startsWith(name + ' '))
+                return /^(?:\d{4} )?s\d{1,3}(?:e\d{1,3})?\b/.test(release.slice(name.length + 1));
+            return false;
+        });
+    }
+
+    async function updateTrackerStatus() {
+        const notice = document.querySelector('#tracker-status');
+        try {
+            const data = await request('UserDownloads/Status'); const status = data.status ?? data.Status;
+            notice.textContent = status === 'indexer' ? t('Prowlarr reports an indexer issue. Search results may be missing.') :
+                status === 'unavailable' ? t('Prowlarr is unavailable. Library search is still available.') : '';
+        } catch {
+            notice.textContent = t('Prowlarr status is unavailable.');
+        }
+        notice.hidden = !notice.textContent;
+    }
+
+    async function load(query, pending, version = ++viewVersion) {
+        const searchMode = Boolean(query);
+        showingSearch = searchMode;
+        const library = searchMode ? loadLibrary(query, version) : Promise.resolve([]);
+        if (!searchMode) localSection.hidden = true;
+        if (searchMode || pending) status.textContent = '';
+        try {
+            const path = searchMode ? 'UserDownloads/Search?query=' + encodeURIComponent(query) : 'UserDownloads';
+            let items = await request(path);
+            if (searchMode && !items.length) void updateTrackerStatus();
+            if (pending) {
+                const stillWaiting = () => items.some(item => item.hash === pending.hash &&
+                    /^(paused|stopped)/i.test(item.state) !== pending.paused);
+                for (let attempt = 0; attempt < 12 && stillWaiting(); attempt++) {
+                    await new Promise(resolve => setTimeout(resolve, 350));
+                    items = await request(path);
+                }
+                if (stillWaiting()) {
+                    status.textContent = t('qBittorrent has not reported the new status yet. Reload the page.');
+                    return;
+                }
+            }
+            const localItems = await library ?? [];
+            if (version !== viewVersion) return;
+            const queue = searchMode ? null : JSON.stringify(items);
+            if (!searchMode && !pending && queue === renderedQueue) {
+                status.textContent = items.length ? '' : t('No current downloads');
+                return;
+            }
+            renderedQueue = queue;
+            if (!searchMode) heading.textContent = t('Current downloads') + (items.length ? ' (' + items.length + ')' : '');
+            if (searchMode) heading.textContent = t('Search results');
+            list.replaceChildren();
+            for (const item of items) {
+                const row = document.createElement('li');
+                const name = document.createElement('strong');
+                name.textContent = searchMode ? item.title : item.name;
+                row.append(name);
+                if (searchMode) {
+                    const match = localMatch(item.title, localItems);
+                    if (match) row.append((match.Type ?? match.type) === 'Series' ? t('Series already in library') : t('Already available'));
+                    row.append(item.indexer + ' · ' + item.seeders + ' Seeder · ' + (item.size / 1e9).toFixed(2) + ' GB');
+                    if (item.indexerId && item.guid) {
+                        const button = document.createElement('button');
+                        button.textContent = t('Download');
+                        button.onclick = async () => {
+                            button.disabled = true;
+                            try {
+                                const result = await request('UserDownloads/Start', 'POST', {
+                                    guid: item.guid, indexerId: item.indexerId
+                                });
+                                if (!result.success) throw new Error('Prowlarr HTTP ' + result.status);
+                                form.reset();
+                                await load();
+                            } catch (error) {
+                                status.textContent = t('Download failed') + ' (' + error.message + ').';
+                                button.disabled = false;
+                            }
+                        };
+                        row.append(button);
+                    }
+                } else {
+                    const progress = document.createElement('progress');
+                    progress.max = 1;
+                    progress.value = Math.max(0, Math.min(1, Number(item.progress) || 0));
+                    progress.setAttribute('aria-label', t('Download progress') + ': ' + item.name);
+                    row.append((progress.value * 100).toFixed(1) + ' % · ' +
+                        (item.downloadSpeed / 1e6).toFixed(2) + ' MB/s · ' + item.state + ' · ' + t('Started by') + ' ' + item.owner);
+                    const paused = /^(paused|stopped)/i.test(item.state);
+                    const button = document.createElement('button');
+                    button.textContent = paused ? t('Resume') : 'Pause';
+                    button.onclick = async () => {
+                        button.disabled = true;
+                        try {
+                            if (!await request('UserDownloads/' + encodeURIComponent(item.hash) + '/' +
+                                (paused ? 'Resume' : 'Pause'), 'POST')) throw new Error();
+                            await load(undefined, { hash: item.hash, paused: !paused });
+                        } catch {
+                            status.textContent = t('Download action failed.');
+                            button.disabled = false;
+                        }
+                    };
+                    if (item.canManage) {
+                        const remove = document.createElement('button');
+                        remove.textContent = t('Remove');
+                        remove.onclick = async () => {
+                            if (!confirm(t('Remove torrent? Downloaded files will be kept.'))) return;
+                            remove.disabled = button.disabled = true;
+                            try {
+                                if (!await request('UserDownloads/' + encodeURIComponent(item.hash), 'DELETE')) throw new Error();
+                                await load();
+                            } catch {
+                                status.textContent = t('Removal failed.');
+                                remove.disabled = button.disabled = false;
+                            }
+                        };
+                        row.append(button, remove);
+                    }
+                    row.append(progress);
+                }
+                list.append(row);
+            }
+            status.textContent = items.length ? '' :
+                (searchMode ? t('No results found.') : t('No current downloads'));
+        } catch (error) {
+            if (version !== viewVersion) return;
+            status.textContent = t('Request failed') + ' (' + error.message + ').';
+        }
+    }
+
+    if (!token) {
+        status.textContent = t('Open this page from a signed-in Jellyfin session.');
+    } else {
+        form.hidden = false;
+        form.querySelector('input').focus();
+        form.onsubmit = event => {
+            event.preventDefault();
+            const query = form.querySelector('input').value.trim();
+            if (query) load(query);
+        };
+        load();
+        void updateTrackerStatus();
+        setInterval(updateTrackerStatus, 30000);
+        setInterval(async () => {
+            if (showingSearch || refreshing || list.querySelector('button:disabled')) return;
+            refreshing = true;
+            try { await load(undefined, undefined, viewVersion); }
+            finally { refreshing = false; }
+        }, 3000);
+    }
+</script>
+</html>

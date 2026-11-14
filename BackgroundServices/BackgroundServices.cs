@@ -34,6 +34,12 @@ public class DownloadMonitorService : BackgroundService
         {
             try
             {
+                if (!_config.AutoImportDownloads || _config.UseProwlarr)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+                    continue;
+                }
+
                 var downloads = await _downloadService.GetActiveDownloadsAsync(stoppingToken);
 
                 foreach (var download in downloads)
@@ -132,6 +138,12 @@ public class HealthCheckService : BackgroundService
         {
             try
             {
+                if (Plugin.Instance.Configuration.UseProwlarr)
+                {
+                    await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken);
+                    continue;
+                }
+
                 var healthy = await _downloadService.TestConnectionAsync(stoppingToken);
                 _logger.LogDebug("Health check: {Status}", healthy ? "Healthy" : "Unhealthy");
             }

@@ -25,3 +25,4 @@ TestResults/
 
 # Docker
 docker-compose.override.yml
+/publish/

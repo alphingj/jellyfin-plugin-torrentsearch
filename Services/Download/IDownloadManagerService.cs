@@ -7,6 +7,8 @@ public interface IDownloadManagerService
     Task<DownloadResult> AddMagnetAsync(DownloadOptions options, CancellationToken ct = default);
     Task<DownloadResult> AddTorrentFileAsync(byte[] torrentData, DownloadOptions options, CancellationToken ct = default);
     Task<List<DownloadStatus>> GetActiveDownloadsAsync(CancellationToken ct = default);
+    Task<List<DownloadStatus>> GetDownloadsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<string>> GetCategoriesAsync(CancellationToken ct);
     Task<DownloadStatus?> GetDownloadStatusAsync(string hash, CancellationToken ct = default);
     Task<bool> PauseDownloadAsync(string hash, CancellationToken ct = default);
     Task<bool> ResumeDownloadAsync(string hash, CancellationToken ct = default);

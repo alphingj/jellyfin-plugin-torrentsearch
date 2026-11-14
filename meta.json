@@ -1,18 +1,11 @@
 {
-  "Name": "Torrent Search",
-  "Author": "alphingj",
-  "Description": "Search for movies and TV shows via Jackett/Prowlarr, download via qBittorrent or embedded MonoTorrent, and auto-sync to Jellyfin library",
-  "Version": "1.0.3",
-  "PluginType": "Plugin",
-  "TargetAbi": "10.11.0",
-  "IconUrl": "https://raw.githubusercontent.com/alphingj/jellyfin-plugin-torrentsearch/main/icon.png",
-  "SourceUrl": "https://github.com/alphingj/jellyfin-plugin-torrentsearch",
-  "ChangelogUrl": "https://github.com/alphingj/jellyfin-plugin-torrentsearch/blob/main/CHANGELOG.md",
-  "PackageUrl": "https://github.com/alphingj/jellyfin-plugin-torrentsearch/releases/download/1.0.3/Jellyfin.Plugin.TorrentSearch.dll",
-  "AssemblyName": "Jellyfin.Plugin.TorrentSearch",
-  "Dependencies": [],
-  "Categories": ["Download", "Automation"],
-  "Platforms": ["Windows", "Linux", "macOS", "ARM64"],
-  "Keywords": ["torrent", "jackett", "prowlarr", "qbittorrent", "automation"],
-  "ReleaseDate": "2026-07-26T00:00:00Z"
+  "name": "Torrent Search",
+  "guid": "8b9e2c4d-7f3a-4d5e-9c1b-2a8f6e4d3c7a",
+  "owner": "Jakob Heinemann (SnakyJake)",
+  "description": "Search Jackett or Prowlarr and manage qBittorrent downloads from Jellyfin.",
+  "overview": "Torrent search and download management for Jellyfin.",
+  "category": "Download",
+  "version": "1.1.0.0",
+  "targetAbi": "12.4.0.0",
+  "imagePath": "icon.png"
 }

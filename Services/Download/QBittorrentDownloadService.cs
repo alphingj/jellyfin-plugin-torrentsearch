@@ -1,26 +1,44 @@
 using QBittorrent.Client;
 using Jellyfin.Plugin.TorrentSearch.Models;
 using Microsoft.Extensions.Logging;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace Jellyfin.Plugin.TorrentSearch.Services.Download;
 
-public class QBittorrentDownloadService : IDownloadManagerService
+public class QBittorrentDownloadService : IDownloadManagerService, IDisposable
 {
     private readonly QBittorrentClient _client;
     private readonly ILogger<QBittorrentDownloadService> _logger;
     private readonly PluginConfiguration _config;
+    private readonly bool _usesApiKey;
+    private readonly HttpClient _categoryClient;
     private bool _loggedIn = false;
 
     public QBittorrentDownloadService(PluginConfiguration config, ILogger<QBittorrentDownloadService> logger)
     {
         _config = config;
         _logger = logger;
-        _client = new QBittorrentClient(new Uri(config.QBittorrentUrl));
+        var uri = new Uri(config.QBittorrentUrl);
+        _usesApiKey = !string.IsNullOrWhiteSpace(config.QBittorrentApiKey);
+        HttpMessageHandler handler;
+        if (_usesApiKey)
+        {
+            handler = new ApiKeyHandler(config.QBittorrentApiKey.Trim());
+        }
+        else
+        {
+            handler = new HttpClientHandler();
+        }
+        _client = new QBittorrentClient(uri, handler, true);
+        _categoryClient = new HttpClient(handler, false) { BaseAddress = new Uri(uri.AbsoluteUri.TrimEnd('/') + "/") };
     }
 
     private async Task EnsureLoginAsync(CancellationToken ct = default)
     {
-        if (!_loggedIn)
+        if (!_usesApiKey && !_loggedIn)
         {
             await _client.LoginAsync(_config.QBittorrentUsername, _config.QBittorrentPassword, ct);
             _loggedIn = true;
@@ -32,6 +50,7 @@ public class QBittorrentDownloadService : IDownloadManagerService
         try
         {
             await EnsureLoginAsync(ct);
+            await _client.GetQBittorrentVersionAsync(ct);
             return true;
         }
         catch (Exception ex)
@@ -119,14 +138,10 @@ public class QBittorrentDownloadService : IDownloadManagerService
     {
         try
         {
-            await EnsureLoginAsync(ct);
-            var torrents = await _client.GetTorrentListAsync(new TorrentListQuery(), ct);
-
-            return torrents
-                .Where(t => t.State != TorrentState.StalledUpload
-                    && t.State != TorrentState.Uploading
-                    && t.State != TorrentState.PausedUpload)
-                .Select(MapTorrentToStatus)
+            return (await GetDownloadsAsync(ct))
+                .Where(t => t.State != nameof(TorrentState.StalledUpload)
+                    && t.State != nameof(TorrentState.Uploading)
+                    && t.State != nameof(TorrentState.PausedUpload))
                 .ToList();
         }
         catch (Exception ex)
@@ -134,6 +149,20 @@ public class QBittorrentDownloadService : IDownloadManagerService
             _logger.LogError(ex, "Error getting active downloads from qBittorrent");
             return new List<DownloadStatus>();
         }
+    }
+
+    public async Task<IReadOnlyList<string>> GetCategoriesAsync(CancellationToken ct)
+    {
+        await EnsureLoginAsync(ct);
+        var categories = await _categoryClient.GetFromJsonAsync<Dictionary<string, JsonElement>>("api/v2/torrents/categories", ct);
+        return categories?.Keys.OrderBy(name => name, StringComparer.OrdinalIgnoreCase).ToArray() ?? [];
+    }
+
+    public async Task<List<DownloadStatus>> GetDownloadsAsync(CancellationToken ct = default)
+    {
+        await EnsureLoginAsync(ct);
+        var torrents = await _client.GetTorrentListAsync(new TorrentListQuery(), ct);
+        return torrents.Select(MapTorrentToStatus).ToList();
     }
 
     public async Task<DownloadStatus?> GetDownloadStatusAsync(string hash, CancellationToken ct = default)
@@ -158,7 +187,8 @@ public class QBittorrentDownloadService : IDownloadManagerService
         try
         {
             await EnsureLoginAsync(ct);
-            await _client.PauseAsync(hash, ct);
+            if (_usesApiKey) await UpdateTorrentAsync("stop", hash, ct);
+            else await _client.PauseAsync(hash, ct);
             return true;
         }
         catch (Exception ex)
@@ -173,7 +203,8 @@ public class QBittorrentDownloadService : IDownloadManagerService
         try
         {
             await EnsureLoginAsync(ct);
-            await _client.ResumeAsync(hash, ct);
+            if (_usesApiKey) await UpdateTorrentAsync("start", hash, ct);
+            else await _client.ResumeAsync(hash, ct);
             return true;
         }
         catch (Exception ex)
@@ -188,7 +219,8 @@ public class QBittorrentDownloadService : IDownloadManagerService
         try
         {
             await EnsureLoginAsync(ct);
-            await _client.DeleteAsync(new[] { hash }, deleteFiles, ct);
+            if (_usesApiKey) await UpdateTorrentAsync("delete", hash, ct, deleteFiles);
+            else await _client.DeleteAsync(new[] { hash }, deleteFiles, ct);
             return true;
         }
         catch (Exception ex)
@@ -196,6 +228,15 @@ public class QBittorrentDownloadService : IDownloadManagerService
             _logger.LogError(ex, "Error removing download {Hash}", hash);
             return false;
         }
+    }
+
+    private async Task UpdateTorrentAsync(string action, string hash, CancellationToken ct, bool? deleteFiles = null)
+    {
+        var fields = new Dictionary<string, string> { ["hashes"] = hash };
+        if (deleteFiles.HasValue) fields["deleteFiles"] = deleteFiles.Value ? "true" : "false";
+        using var content = new FormUrlEncodedContent(fields);
+        using var response = await _categoryClient.PostAsync($"api/v2/torrents/{action}", content, ct);
+        response.EnsureSuccessStatusCode();
     }
 
     public async Task<Dictionary<string, object>> GetClientInfoAsync(CancellationToken ct = default)
@@ -215,6 +256,91 @@ public class QBittorrentDownloadService : IDownloadManagerService
         {
             _logger.LogError(ex, "Error getting client info");
             return new Dictionary<string, object> { ["error"] = ex.Message };
+        }
+    }
+
+    public void Dispose()
+    {
+        _client.Dispose();
+        _categoryClient.Dispose();
+    }
+
+    private sealed class ApiKeyHandler(string apiKey)
+        : DelegatingHandler(new HttpClientHandler { AllowAutoRedirect = false })
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            // API keys require Web API v2. The client probes this legacy route to select its API version.
+            var uri = request.RequestUri!;
+            if (request.Method == HttpMethod.Get && uri.AbsolutePath.EndsWith("/version/api", StringComparison.Ordinal))
+            {
+                return Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK)
+                {
+                    Content = new StringContent("25")
+                });
+            }
+
+            var path = uri.AbsolutePath switch
+            {
+                "/version/qbittorrent" => "/api/v2/app/version",
+                "/query/torrents" => "/api/v2/torrents/info",
+                "/command/upload" or "/command/download" => "/api/v2/torrents/add",
+                "/command/pause" or "/api/v2/torrents/pause" => "/api/v2/torrents/stop",
+                "/command/resume" or "/api/v2/torrents/resume" => "/api/v2/torrents/start",
+                "/command/delete" or "/command/deletePerm" => "/api/v2/torrents/delete",
+                _ => uri.AbsolutePath
+            };
+            if (path != uri.AbsolutePath)
+            {
+                request.RequestUri = new UriBuilder(uri) { Path = path }.Uri;
+            }
+
+            if (uri.AbsolutePath is "/command/delete" or "/command/deletePerm")
+                return DeleteLegacyAsync(request, uri.AbsolutePath == "/command/deletePerm", cancellationToken);
+
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            if (path == "/api/v2/torrents/info")
+                return ReadCompatibleTorrentListAsync(request, cancellationToken);
+            return base.SendAsync(request, cancellationToken);
+        }
+
+        private async Task<HttpResponseMessage> ReadCompatibleTorrentListAsync(HttpRequestMessage request, CancellationToken ct)
+        {
+            var response = await base.SendAsync(request, ct);
+            if (!response.IsSuccessStatusCode) return response;
+
+            try
+            {
+                var torrents = await response.Content.ReadFromJsonAsync<JsonArray>(cancellationToken: ct);
+                if (torrents is null) return response;
+                foreach (var torrent in torrents)
+                {
+                    switch (torrent?["state"]?.GetValue<string>())
+                    {
+                        case "stoppedDL": torrent["state"] = "pausedDL"; break;
+                        case "stoppedUP": torrent["state"] = "pausedUP"; break;
+                    }
+                }
+
+                response.Content.Dispose();
+                response.Content = JsonContent.Create(torrents);
+                return response;
+            }
+            catch
+            {
+                response.Dispose();
+                throw;
+            }
+        }
+
+        private async Task<HttpResponseMessage> DeleteLegacyAsync(HttpRequestMessage request, bool deleteFiles, CancellationToken ct)
+        {
+            var body = await request.Content!.ReadAsStringAsync(ct);
+            request.Content.Dispose();
+            request.Content = new StringContent(body + "&deleteFiles=" + (deleteFiles ? "true" : "false"),
+                System.Text.Encoding.UTF8, "application/x-www-form-urlencoded");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
+            return await base.SendAsync(request, ct);
         }
     }
 

@@ -7,5 +7,7 @@ public interface ITorrentSearchService
     Task<SearchResult> SearchMoviesAsync(string query, int year = 0, CancellationToken ct = default);
     Task<SearchResult> SearchShowsAsync(string query, int season = 0, int episode = 0, CancellationToken ct = default);
     Task<SearchResult> SearchAsync(TorznabSearchRequest request, CancellationToken ct = default);
+    Task<IReadOnlyList<SearchCategory>> GetCategoriesAsync(CancellationToken ct);
+    Task<HttpResponseMessage?> GetReleaseAsync(int indexerId, string guid, CancellationToken ct);
     Task<bool> TestConnectionAsync(CancellationToken ct = default);
 }

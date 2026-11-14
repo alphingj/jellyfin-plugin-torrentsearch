@@ -1,3 +1,6 @@
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MediaBrowser.Controller.Plugins;
@@ -14,7 +17,11 @@ public class ServiceRegistrator : IPluginServiceRegistrator
 {
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
-        serviceCollection.AddSingleton<ITorrentSearchService, JackettSearchService>();
+        serviceCollection.AddTransient<IStartupFilter, TorrentSearchStartupFilter>();
+        serviceCollection.AddTransient<Controllers.TorrentSearchController>();
+
+        serviceCollection.AddSingleton<PluginConfiguration>(_ => Plugin.Instance.Configuration);
+        serviceCollection.AddSingleton<ITorrentSearchService>(sp => sp.GetRequiredService<JackettSearchService>());
         serviceCollection.AddSingleton<IDownloadManagerService>(sp =>
         {
             var config = Plugin.Instance.Configuration;
@@ -26,9 +33,28 @@ public class ServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<QualityParser>();
 
         serviceCollection.AddHostedService<DownloadMonitorService>();
+        serviceCollection.AddHostedService<CompletedMediaRefresh>();
         serviceCollection.AddHostedService<LibraryScannerService>();
         serviceCollection.AddHostedService<HealthCheckService>();
 
         serviceCollection.AddHttpClient<JackettSearchService>();
+    }
+}
+
+internal sealed class TorrentSearchStartupFilter : IStartupFilter
+{
+    public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next)
+    {
+        return app =>
+        {
+            var manager = app.ApplicationServices.GetRequiredService<ApplicationPartManager>();
+            var assembly = typeof(Controllers.TorrentSearchController).Assembly;
+            if (!manager.ApplicationParts.OfType<AssemblyPart>().Any(part => part.Assembly == assembly))
+            {
+                manager.ApplicationParts.Add(new AssemblyPart(assembly));
+            }
+
+            next(app);
+        };
     }
 }

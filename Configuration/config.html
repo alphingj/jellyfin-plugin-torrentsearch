@@ -1,11 +1,4 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Torrent Search Configuration</title>
-</head>
-<body>
+<div id="torrentSearchPage" data-role="page" class="page type-interior pluginConfigurationPage">
 <style>
 * {
     box-sizing: border-box;
@@ -197,9 +190,30 @@ body {
     font-size: 0.85rem;
 }
 
+#torrentSearchPage #adminLibraryResults[hidden] {
+    display: none !important;
+}
+
+#adminLibraryResults ul {
+    list-style: none;
+    padding: 0;
+}
+
+#adminLibraryResults a {
+    display: block;
+    color: inherit;
+    text-decoration: none;
+    overflow-wrap: anywhere;
+}
+
+#adminLibraryResults a:hover,
+#adminLibraryResults a:focus-visible {
+    color: #4ecdc4;
+}
+
 .results-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 380px), 1fr));
     gap: 1rem;
     margin-top: 1rem;
 }
@@ -226,6 +240,8 @@ body {
 }
 
 .result-header h3 {
+    min-width: 0;
+    overflow-wrap: anywhere;
     font-size: 1rem;
     color: #fff;
     line-height: 1.4;
@@ -283,6 +299,15 @@ body {
 .result-actions {
     display: flex;
     gap: 0.5rem;
+}
+
+#torrentSearchPage #trackerStatus:not([hidden]) {
+    display: block;
+    padding: .8rem 1rem;
+    margin: 0 0 1rem;
+    border-radius: .5rem;
+    background: #382b17;
+    color: #ffe3ae;
 }
 
 .empty-state {
@@ -393,6 +418,22 @@ body {
     gap: 0.75rem;
 }
 
+#torrentSearchPage #modalTitle {
+    overflow-wrap: anywhere;
+}
+
+#removeDownloadDialog {
+    background: #161e38;
+    color: #fff;
+    border: 0;
+    border-radius: 12px;
+    padding: 2rem;
+}
+
+#removeDownloadDialog::backdrop {
+    background: rgba(0, 0, 0, 0.65);
+}
+
 .toast-container {
     position: fixed;
     bottom: 2rem;
@@ -403,7 +444,7 @@ body {
     gap: 0.5rem;
 }
 
-.toast {
+.torrent-search-toast {
     padding: 1rem 1.5rem;
     border-radius: 8px;
     animation: slideIn 0.3s ease;
@@ -411,9 +452,9 @@ body {
     box-shadow: 0 10px 40px rgba(0,0,0,0.4);
 }
 
-.toast.success { background: #27ae60; color: #fff; }
-.toast.error { background: #e74c3c; color: #fff; }
-.toast.info { background: #3498db; color: #fff; }
+.torrent-search-toast.success { background: #27ae60; color: #fff; }
+.torrent-search-toast.error { background: #e74c3c; color: #fff; }
+.torrent-search-toast.info { background: #3498db; color: #fff; }
 
 @keyframes slideIn {
     from { transform: translateX(100%); opacity: 0; }
@@ -458,6 +499,33 @@ body {
 .plugin-footer a:hover {
     color: #45b7b0;
 }
+#torrentSearchPage .torrent-search-fields {
+    gap: .75rem;
+    max-width: 48rem;
+}
+
+#torrentSearchPage .torrent-search-fields .form-group {
+    flex: 0 0 auto;
+    margin: 0;
+}
+
+#torrentSearchPage .torrent-search-fields .form-group:first-child {
+    flex: 1 1 14rem;
+}
+
+#torrentSearchPage .torrent-search-fields input[type="text"] {
+    max-width: none;
+}
+
+#torrentSearchPage .torrent-search-fields input[type="number"] {
+    width: 6rem;
+}
+
+@media (max-width: 540px) {
+    #torrentSearchPage .torrent-search-fields .form-group:first-child {
+        flex-basis: 100%;
+    }
+}
 </style>
 
 <div id="app">
@@ -485,19 +553,27 @@ body {
     </div>
 
     <div id="panel-search" class="tab-panel active">
+        <p id="trackerStatus" role="status" hidden></p>
+        <section id="adminLibraryResults" class="card" hidden>
+            <h2>Already in your library</h2>
+            <ul class="results-grid"></ul>
+        </section>
         <div class="card">
-            <h2>Search Movies</h2>
-            <div class="form-row">
+            <h2 id="movieSearchHeading">Movies</h2>
+            <div class="form-row torrent-search-fields">
                 <div class="form-group">
-                    <input type="text" id="movieQuery" placeholder="Movie title...">
+                    <label for="movieQuery">Title</label>
+                    <input type="text" id="movieQuery" placeholder="Title" data-i18n-placeholder>
                 </div>
                 <div class="form-group">
-                    <input type="number" id="movieYear" placeholder="Year" min="1900" max="2030" style="width: 100px;">
+                    <label for="movieYear">Year</label>
+                    <input type="number" id="movieYear" placeholder="Year" data-i18n-placeholder min="1900" max="2030">
                 </div>
                 <div class="form-group">
                     <button type="button" class="btn btn-primary" id="btnMovieSearch">
                         Search
                     </button>
+                    <button type="button" class="btn btn-secondary" id="btnMovieLatest" hidden>Latest releases</button>
                 </div>
             </div>
             <div id="movieResults" class="results-grid"></div>
@@ -505,32 +581,45 @@ body {
         </div>
 
         <div class="card">
-            <h2>Search TV Shows</h2>
-            <div class="form-row">
+            <h2 id="seriesSearchHeading">TV Shows</h2>
+            <div class="form-row torrent-search-fields">
                 <div class="form-group">
-                    <input type="text" id="showQuery" placeholder="Show title...">
+                    <label for="showQuery">Title</label>
+                    <input type="text" id="showQuery" placeholder="Title" data-i18n-placeholder>
                 </div>
                 <div class="form-group">
-                    <input type="number" id="showSeason" placeholder="Season" min="1" style="width: 90px;">
+                    <label for="showSeason">Season</label>
+                    <input type="number" id="showSeason" placeholder="Season" data-i18n-placeholder min="1">
                 </div>
                 <div class="form-group">
-                    <input type="number" id="showEpisode" placeholder="Episode" min="1" style="width: 90px;">
+                    <label for="showEpisode">Episode</label>
+                    <input type="number" id="showEpisode" placeholder="Episode" data-i18n-placeholder min="1">
                 </div>
                 <div class="form-group">
                     <button type="button" class="btn btn-primary" id="btnShowSearch">
                         Search
                     </button>
+                    <button type="button" class="btn btn-secondary" id="btnShowLatest" hidden>Latest releases</button>
                 </div>
             </div>
             <div id="showResults" class="results-grid"></div>
             <div id="showEmpty" class="empty-state" style="display: none;">No results found</div>
         </div>
+        <div id="customSearchCards"></div>
     </div>
 
     <div id="panel-downloads" class="tab-panel">
+        <dialog id="removeDownloadDialog">
+            <p>Remove this download?</p>
+            <form method="dialog" class="modal-actions">
+                <button class="btn btn-secondary" value="cancel" autofocus>Cancel</button>
+                <button class="btn btn-danger" value="remove">Remove</button>
+            </form>
+        </dialog>
         <div class="card">
-            <h2>Active Downloads</h2>
-            <div id="dlEmpty" class="empty-state">No active downloads</div>
+            <h2>Downloads</h2>
+            <label><input type="checkbox" id="dlActiveOnly"> Only show active downloads</label>
+            <div id="dlEmpty" class="empty-state">Loading downloads…</div>
             <div id="dlList" class="download-list" style="display: none;"></div>
         </div>
     </div>
@@ -544,7 +633,7 @@ body {
             </div>
             <div class="form-group">
                 <label>Jackett API Key</label>
-                <input type="password" id="jackettApiKey" placeholder="API Key">
+                <input type="password" id="jackettApiKey" placeholder="API Key" data-i18n-placeholder>
             </div>
             <div class="form-group">
                 <label>Prowlarr URL</label>
@@ -552,7 +641,7 @@ body {
             </div>
             <div class="form-group">
                 <label>Prowlarr API Key</label>
-                <input type="password" id="prowlarrApiKey" placeholder="API Key">
+                <input type="password" id="prowlarrApiKey" placeholder="API Key" data-i18n-placeholder>
             </div>
             <div class="form-group">
                 <label><input type="checkbox" id="useProwlarr"> Use Prowlarr instead of Jackett</label>
@@ -580,12 +669,21 @@ body {
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" id="qbittorrentPassword" placeholder="Password">
+                    <input type="password" id="qbittorrentPassword" placeholder="Password" data-i18n-placeholder>
+                </div>
+                <div class="form-group">
+                    <label for="qbittorrentApiKey">qBittorrent API key</label>
+                    <input type="password" id="qbittorrentApiKey" autocomplete="off">
+                    <small>Optional. Restart Jellyfin after changing the API key.</small>
                 </div>
             </div>
             <div class="form-group">
                 <label>Download Path</label>
                 <input type="text" id="downloadPath" placeholder="/downloads">
+            </div>
+            <div class="form-group">
+                <label><input type="checkbox" id="askDownloadCategory" checked> Ask for the qBittorrent category before downloading</label>
+                <small>When disabled, Prowlarr releases use the download settings in Prowlarr.</small>
             </div>
             <div class="form-group">
                 <label>Max Concurrent Downloads</label>
@@ -615,6 +713,10 @@ body {
         </div>
 
         <div class="card">
+            <h2>Custom search categories</h2>
+            <div id="standardCategoryRows"></div>
+            <div id="customCategoryRows"></div>
+            <button type="button" class="btn btn-secondary" id="addCustomCategory" disabled>Add category</button>
             <button type="button" class="btn btn-primary" id="btnSaveConfig">Save Configuration</button>
         </div>
     </div>
@@ -635,6 +737,7 @@ body {
         <div class="card">
             <h2>Auto-Sync Settings</h2>
             <div class="form-group">
+                <label><input type="checkbox" id="autoImportDownloads"> Automatically import completed downloads (direct clients)</label>
                 <label><input type="checkbox" id="autoRefreshLibrary"> Auto Refresh Library</label>
             </div>
             <div class="form-group">
@@ -658,8 +761,7 @@ body {
             <div class="form-group">
                 <label>Category</label>
                 <select id="dlCategory">
-                    <option value="movies">Movies</option>
-                    <option value="tv">TV Shows</option>
+                    <option value="">No category</option>
                 </select>
             </div>
             <div class="form-group">
@@ -688,6 +790,140 @@ body {
 (function () {
     'use strict';
 
+    var german = /^de(?:-|$)/i.test(navigator.language);
+    var translations = {
+    "Torrent Search Configuration": "Torrent-Suche",
+    "Search": "Suchen",
+    "Downloads": "Downloads",
+    "Settings": "Einstellungen",
+    "Library": "Bibliothek",
+    "Search Movies": "Filme suchen",
+    "Search TV Shows": "Serien suchen",
+    "Title": "Titel",
+    "Year": "Jahr",
+    "Season": "Staffel",
+    "Episode": "Folge",
+    "Movie title...": "Filmtitel ...",
+    "Show title...": "Serientitel ...",
+    "No results found": "Keine Treffer gefunden",
+    "qBittorrent API key": "qBittorrent API-Schlüssel",
+    "Optional. Restart Jellyfin after changing the API key.": "Optional. Starte Jellyfin nach einer Änderung des API-Schlüssels neu.",
+    "Custom search categories": "Eigene Suchkategorien",
+    "Add category": "Kategorie hinzufügen",
+    "Display name": "Anzeigename",
+    "Prowlarr categories": "Prowlarr-Kategorien",
+    "Excluded categories": "Ausgeschlossene Kategorien",
+    "Latest releases": "Neueste Treffer",
+    "Already in your library": "Bereits in deiner Bibliothek",
+    "Prowlarr reports an indexer issue. Search results may be missing.": "Prowlarr meldet eine Tracker-Störung. Suchergebnisse können fehlen.",
+    "Prowlarr status is unavailable.": "Der Prowlarr-Status ist gerade nicht abrufbar.",
+    "Download action failed": "Die Download-Aktion ist fehlgeschlagen.",
+    "Ask for the qBittorrent category before downloading": "Vor dem Download nach der qBittorrent-Kategorie fragen",
+    "When disabled, Prowlarr releases use the download settings in Prowlarr.": "Bei deaktivierter Abfrage gelten für Prowlarr-Treffer die Download-Einstellungen in Prowlarr.",
+    "Show season and episode fields": "Staffel und Folge anzeigen",
+    "Hide search card": "Suchkarte ausblenden",
+    "Enter a name and category for each search card": "Gib für jede Suchkarte einen Namen und eine Kategorie an.",
+    "No category": "Keine Kategorie",
+    "Could not load categories": "Kategorien konnten nicht geladen werden",
+    "Only show active downloads": "Nur laufende Downloads anzeigen",
+    "No active downloads": "Keine laufenden Downloads",
+    "Loading downloads…": "Downloads werden geladen …",
+    "No downloads": "Keine Downloads",
+    "Could not load downloads. Check the qBittorrent connection in Settings.": "Downloads konnten nicht geladen werden. Prüfe die qBittorrent-Verbindung in den Einstellungen.",
+    "Indexer Settings (Jackett/Prowlarr)": "Indexer-Einstellungen (Jackett/Prowlarr)",
+    "Jackett URL": "Jackett-Adresse",
+    "Prowlarr URL": "Prowlarr-Adresse",
+    "Jackett API Key": "Jackett-API-Schlüssel",
+    "Prowlarr API Key": "Prowlarr-API-Schlüssel",
+    "API Key": "API-Schlüssel",
+    "Use Prowlarr instead of Jackett": "Prowlarr verwenden",
+    "Test Indexer Connection": "Indexer-Verbindung testen",
+    "Torrent Client Settings": "Torrent-Client-Einstellungen",
+    "Client Type": "Client-Typ",
+    "MonoTorrent (Embedded)": "MonoTorrent (integriert)",
+    "qBittorrent URL": "qBittorrent-Adresse",
+    "Username": "Benutzername",
+    "Password": "Passwort",
+    "Download Path": "Downloadpfad",
+    "Max Concurrent Downloads": "Maximale gleichzeitige Downloads",
+    "Test Client Connection": "Client-Verbindung testen",
+    "Search Preferences": "Sucheinstellungen",
+    "Max Search Results": "Maximale Trefferzahl",
+    "Minimum Seeders": "Mindestanzahl an Seedern",
+    "Preferred Keywords (comma separated)": "Bevorzugte Begriffe (durch Kommas getrennt)",
+    "Excluded Keywords (comma separated)": "Ausgeschlossene Begriffe (durch Kommas getrennt)",
+    "Save Configuration": "Einstellungen speichern",
+    "Library Paths": "Bibliothekspfade",
+    "Movies Library Path": "Pfad zur Filmbibliothek",
+    "TV Shows Library Path": "Pfad zur Serienbibliothek",
+    "Auto-Sync Settings": "Automatische Synchronisierung",
+    "Automatically import completed downloads (direct clients)": "Abgeschlossene Downloads automatisch importieren (direkte Clients)",
+    "Auto Refresh Library": "Bibliothek automatisch aktualisieren",
+    "Scan Interval (minutes)": "Scanintervall (Minuten)",
+    "Library Actions": "Bibliotheksaktionen",
+    "Scan Movies Library": "Filmbibliothek scannen",
+    "Scan TV Shows Library": "Serienbibliothek scannen",
+    "Refresh Jellyfin Library": "Jellyfin-Bibliothek aktualisieren",
+    "Confirm Download": "Download bestätigen",
+    "Category": "Kategorie",
+    "Movies": "Filme",
+    "TV Shows": "Serien",
+    "Save Path": "Speicherpfad",
+    "Cancel": "Abbrechen",
+    "Download": "Herunterladen",
+    "Torrent Search Plugin for Jellyfin": "Torrent-Suche für Jellyfin",
+    "Created by": "Erstellt von",
+    "Licensed under": "Lizenziert unter",
+    "Pause": "Pausieren",
+    "Resume": "Fortsetzen",
+    "Remove": "Entfernen",
+    "Remove this download?": "Diesen Download entfernen?",
+    "Search failed: ": "Suche fehlgeschlagen: ",
+    "Download started": "Download gestartet",
+    "Failed: ": "Fehler: ",
+    "unknown error": "Unbekannter Fehler",
+    "Download failed": "Download fehlgeschlagen",
+    "Failed to load config": "Einstellungen konnten nicht geladen werden",
+    "Load the saved settings before saving": "Lade zuerst die vorhandenen Einstellungen",
+    "Configuration saved": "Einstellungen gespeichert",
+    "Failed to save config: ": "Speichern fehlgeschlagen: ",
+    "Indexer connection successful": "Indexer erreichbar",
+    "Indexer connection failed": "Indexer nicht erreichbar",
+    "Indexer test failed": "Indexer-Test fehlgeschlagen",
+    "Client connection successful": "Client erreichbar",
+    "Client connection failed": "Client nicht erreichbar",
+    "Client test failed": "Client-Test fehlgeschlagen",
+    "Library scan failed": "Bibliotheksscan fehlgeschlagen",
+    "Refreshing Jellyfin library...": "Jellyfin-Bibliothek wird aktualisiert ...",
+    "Library refresh triggered": "Bibliotheksaktualisierung gestartet",
+    "Library refresh failed": "Bibliotheksaktualisierung fehlgeschlagen",
+    "Jellyfin login required": "Jellyfin-Anmeldung erforderlich"
+};
+
+    function t(text) {
+        return german && Object.hasOwn(translations, text) ? translations[text] : text;
+    }
+
+    function translatePage() {
+        if (!german) return;
+        var nodes = document.createTreeWalker(page, NodeFilter.SHOW_TEXT, {
+            acceptNode: function (node) {
+                return node.parentElement.closest('style, script')
+                    ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+            }
+        });
+        while (nodes.nextNode()) {
+            var node = nodes.currentNode;
+            var label = node.data.trim();
+            if (label && Object.hasOwn(translations, label)) {
+                node.data = node.data.replace(label, t(label));
+            }
+        }
+        page.querySelectorAll('[data-i18n-placeholder]').forEach(function (input) {
+            input.placeholder = t(input.placeholder);
+        });
+    }
+
     var state = {
         activeTab: 'search',
         config: null,
@@ -698,40 +934,37 @@ body {
         selectedDownload: null
     };
 
-    function apiGet(path) {
-        if (window.ApiClient && window.ApiClient.getUrl && window.ApiClient.get) {
-            return window.ApiClient.get(window.ApiClient.getUrl(path));
-        }
-        return fetch(path).then(function (r) { return r.json(); });
+    async function apiRequest(method, path, body) {
+        var client = window.ApiClient;
+        if (!client || !client.accessToken()) throw new Error(t('Jellyfin login required'));
+        var headers = {
+            'Accept': 'application/json; profile="CamelCase"',
+            'Authorization': 'MediaBrowser Token="' + client.accessToken() + '"'
+        };
+        if (body !== undefined) headers['Content-Type'] = 'application/json';
+        var response = await fetch(client.getUrl(path.replace(/^\//, '')), {
+            method: method,
+            headers: headers,
+            body: body === undefined ? undefined : JSON.stringify(body)
+        });
+        if (!response.ok) throw new Error('Jellyfin HTTP ' + response.status);
+        return response.status === 204 ? null : response.json();
     }
 
-    function apiPost(path, body) {
-        if (window.ApiClient && window.ApiClient.getUrl && window.ApiClient.post) {
-            return window.ApiClient.post(window.ApiClient.getUrl(path), body, 'application/json');
-        }
-        return fetch(path, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        }).then(function (r) { return r.json(); });
-    }
+    function apiGet(path) { return apiRequest('GET', path); }
+    function apiPost(path, body) { return apiRequest('POST', path, body); }
+    function apiDelete(path) { return apiRequest('DELETE', path); }
 
-    function apiDelete(path) {
-        if (window.ApiClient && window.ApiClient.getUrl && window.ApiClient.ajax) {
-            return window.ApiClient.ajax({ url: window.ApiClient.getUrl(path), type: 'DELETE', dataType: 'json' });
-        }
-        return fetch(path, { method: 'DELETE' }).then(function (r) { return r.json(); });
-    }
-
-    function $(id) { return document.getElementById(id); }
+    function $(id) { return page.querySelector('#' + id); }
 
     function showToast(message, type) {
         var container = $('toastContainer');
         var el = document.createElement('div');
-        el.className = 'toast ' + (type || 'info');
+        el.className = 'torrent-search-toast ' + (type || 'info');
+        el.setAttribute('role', type === 'error' ? 'alert' : 'status');
         el.textContent = message;
         container.appendChild(el);
-        setTimeout(function () { el.remove(); }, 5000);
+        setTimeout(function () { el.remove(); }, 3000);
     }
 
     function formatSize(bytes) {
@@ -794,7 +1027,7 @@ body {
                 '<div class="result-header"><h3>' + escapeHtml(title) + '</h3>' +
                 '<span class="quality-badge ' + escapeHtml(qualityBadge(result.quality)) + '">' + escapeHtml(qualityBadge(result.quality)) + '</span></div>' +
                 '<div class="result-meta">' + meta.join('') + '</div>' +
-                '<div class="result-actions"><button type="button" class="btn btn-sm btn-primary" data-download="1" data-category="' + escapeHtml(category) + '">Download</button></div>' +
+                '<div class="result-actions"><button type="button" class="btn btn-sm btn-primary" data-download="1" data-category="' + escapeHtml(category) + '">' + t('Download') + '</button></div>' +
                 '</div>';
         });
         container.innerHTML = html;
@@ -810,22 +1043,53 @@ body {
         });
     }
 
-    function searchMovies() {
-        var query = $('movieQuery').value.trim();
+    var librarySearchVersion = 0;
+    async function searchLibrary(query) {
+        var version = ++librarySearchVersion;
+        var section = $('adminLibraryResults');
+        var list = section.querySelector('ul');
+        section.hidden = true;
+        list.replaceChildren();
         if (!query) return;
+        try {
+            var params = new URLSearchParams({ searchTerm: query, recursive: 'true',
+                isPlaceHolder: 'false', includeItemTypes: 'Movie,Series,MusicAlbum', limit: '20' });
+            var data = await apiGet('/Items?' + params);
+            if (version !== librarySearchVersion) return;
+            (data.items ?? data.Items ?? []).forEach(function (item) {
+                var row = document.createElement('li');
+                var link = document.createElement('a');
+                link.href = '#/details?' + new URLSearchParams({ id: item.id ?? item.Id });
+                link.className = 'result-card';
+                var year = item.productionYear ?? item.ProductionYear;
+                link.textContent = (item.name ?? item.Name) + (year ? ' (' + year + ')' : '');
+                row.append(link);
+                list.append(row);
+            });
+            section.hidden = !list.children.length;
+        } catch (error) {
+            if (version === librarySearchVersion) showToast(t('Search failed: ') + error.message, 'error');
+        }
+    }
+
+    function searchMovies(event, latest = false) {
+        var query = latest ? '' : $('movieQuery').value.trim();
+        if (!query && !latest) return;
+        void searchLibrary(query);
         state.searching = true;
-        var btn = $('btnMovieSearch');
+        var btn = $(latest ? 'btnMovieLatest' : 'btnMovieSearch');
         btn.disabled = true;
         var params = new URLSearchParams({ query: query });
         var year = $('movieYear').value;
-        if (year) params.append('year', year);
+        if (year && !latest) params.append('year', year);
         apiGet('/TorrentSearch/Search/Movie?' + params.toString())
             .then(function (data) {
                 var results = data.results || [];
+                if (!results.length) updateTrackerStatus($('movieEmpty'));
                 renderResults($('movieResults'), $('movieEmpty'), results, 'movies');
             })
-            .catch(function () {
-                showToast('Search failed', 'error');
+            .catch(function (error) {
+                showToast(t('Search failed: ') + error.message, 'error');
             })
             .finally(function () {
                 state.searching = false;
@@ -833,45 +1097,200 @@ body {
             });
     }
 
-    function searchShows() {
-        var query = $('showQuery').value.trim();
-        if (!query) return;
+    function searchShows(event, latest = false) {
+        var query = latest ? '' : $('showQuery').value.trim();
+        if (!query && !latest) return;
+        void searchLibrary(query);
         state.searching = true;
-        var btn = $('btnShowSearch');
+        var btn = $(latest ? 'btnShowLatest' : 'btnShowSearch');
         btn.disabled = true;
         var params = new URLSearchParams({ query: query });
         var season = $('showSeason').value;
         var episode = $('showEpisode').value;
-        if (season) params.append('season', season);
-        if (episode) params.append('episode', episode);
+        if (season && !latest) params.append('season', season);
+        if (episode && !latest) params.append('episode', episode);
         apiGet('/TorrentSearch/Search/Show?' + params.toString())
             .then(function (data) {
                 var results = data.results || [];
                 renderResults($('showResults'), $('showEmpty'), results, 'tv');
+                if (!results.length) updateTrackerStatus($('showEmpty'));
             })
-            .catch(function () {
-                showToast('Search failed', 'error');
+            .catch(function (error) {
+                showToast(t('Search failed: ') + error.message, 'error');
             })
             .finally(function () {
                 state.searching = false;
                 btn.disabled = false;
             });
+    }
+
+    function renderCustomSearchCards(categories) {
+        $('customSearchCards').replaceChildren();
+        categories.forEach(function (category, index) {
+            var card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = '<h2></h2><form class="form-row torrent-search-fields">' +
+                '<div class="form-group"><label></label><input type="text" required></div>' +
+                (category.showEpisodeFields ?
+                    '<div class="form-group"><label></label><input type="number" min="1"></div>' +
+                    '<div class="form-group"><label></label><input type="number" min="1"></div>' : '') +
+                '<div class="form-group"><button class="btn btn-primary" type="submit"></button></div></form>' +
+                '<div class="results-grid"></div><div class="empty-state" style="display:none"></div>';
+            card.querySelector('h2').textContent = category.name;
+            var input = card.querySelector('input');
+            input.id = 'customSearchQuery' + index;
+            var label = card.querySelector('label');
+            label.htmlFor = input.id;
+            label.textContent = t('Title');
+            input.placeholder = t('Title');
+            var numbers = card.querySelectorAll('input[type="number"]');
+            numbers.forEach(function (field, fieldIndex) {
+                field.id = input.id + (fieldIndex === 0 ? 'Season' : 'Episode');
+                field.previousElementSibling.htmlFor = field.id;
+                field.placeholder = field.previousElementSibling.textContent = t(fieldIndex === 0 ? 'Season' : 'Episode');
+            });
+            var button = card.querySelector('button');
+            button.textContent = t('Search');
+            var latestButton = document.createElement('button');
+            latestButton.type = 'button';
+            latestButton.className = 'btn btn-secondary';
+            latestButton.textContent = t('Latest releases');
+            if (state.config.useProwlarr) button.after(latestButton);
+            var empty = card.querySelector('.empty-state');
+            empty.textContent = t('No results found');
+            card.querySelector('form').addEventListener('submit', function (event) {
+                event.preventDefault();
+                runSearch(false);
+            });
+            latestButton.addEventListener('click', function () { runSearch(true); });
+            function runSearch(latest) {
+                var query = latest ? '' : input.value.trim();
+                if (!query && !latest) return;
+                void searchLibrary(query);
+                button.disabled = latestButton.disabled = true;
+                apiPost('/TorrentSearch/Search', {
+                    query: query,
+                    categoryIds: customCategoryIds(category),
+                    excludedCategoryIds: category.excludedCategoryIds || [],
+                    season: latest ? null : Number(numbers[0]?.value) || null,
+                    episode: latest ? null : Number(numbers[1]?.value) || null
+                })
+                    .then(function (data) {
+                        renderResults(card.querySelector('.results-grid'), empty, data.results || [], '');
+                        if (!data.results?.length) updateTrackerStatus(empty);
+                    }).catch(function (error) {
+                        showToast(t('Search failed: ') + error.message, 'error');
+                    }).finally(function () { button.disabled = latestButton.disabled = false; });
+            }
+            $('customSearchCards').appendChild(card);
+        });
+    }
+
+    function customCategoryIds(category) {
+        return category.categoryIds && category.categoryIds.length ? category.categoryIds :
+            (category.categoryId ? [category.categoryId] : []);
+    }
+
+    function addCustomCategoryRow(category, standardKey, defaultName) {
+        var row = document.createElement('div');
+        row.className = 'form-row';
+        row.innerHTML = '<div class="form-group"><label><span></span><input type="text" maxlength="80"></label></div>' +
+            '<div class="form-group"><label><span></span><select multiple size="6"></select></label></div>' +
+            '<div class="form-group"><button type="button" class="btn btn-secondary"></button></div>';
+        var labels = row.querySelectorAll('label span');
+        labels[0].textContent = t('Display name');
+        labels[1].textContent = t('Prowlarr categories');
+        row.querySelector('input').value = category.name || '';
+        if (standardKey) {
+            row.dataset.standardKey = standardKey;
+            row.querySelector('input').placeholder = defaultName;
+        }
+        var select = row.querySelector('select');
+        var selectedIds = customCategoryIds(category);
+        (state.prowlarrCategories || []).forEach(function (item) {
+            select.add(new Option(item.name + ' (' + item.id + ')', item.id, false, selectedIds.includes(item.id)));
+        });
+        selectedIds.forEach(function (id) {
+            if (!Array.from(select.options).some(function (option) { return Number(option.value) === id; })) {
+                select.add(new Option(String(id), id, false, true));
+            }
+        });
+        var exclusionGroup = select.closest('.form-group').cloneNode(true);
+        exclusionGroup.querySelector('span').textContent = t('Excluded categories');
+        var excludedSelect = exclusionGroup.querySelector('select');
+        excludedSelect.replaceChildren();
+        var excludedIds = category.excludedCategoryIds || [];
+        (state.prowlarrCategories || []).forEach(function (item) {
+            excludedSelect.add(new Option(item.name + ' (' + item.id + ')', item.id, false, excludedIds.includes(item.id)));
+        });
+        excludedIds.forEach(function (id) {
+            if (!Array.from(excludedSelect.options).some(function (option) { return Number(option.value) === id; })) {
+                excludedSelect.add(new Option(String(id), id, false, true));
+            }
+        });
+        row.insertBefore(exclusionGroup, row.lastElementChild);
+        var button = row.querySelector('button');
+        button.textContent = t('Remove');
+        button.addEventListener('click', function () { row.remove(); });
+        if (standardKey) button.remove();
+        var optionLabel = document.createElement('label');
+        var option = document.createElement('input');
+        option.type = 'checkbox';
+        option.checked = standardKey ? !!category.hidden : !!category.showEpisodeFields;
+        optionLabel.append(option, ' ' + t(standardKey ? 'Hide search card' : 'Show season and episode fields'));
+        row.lastElementChild.appendChild(optionLabel);
+        $(standardKey ? 'standardCategoryRows' : 'customCategoryRows').appendChild(row);
+    }
+
+    function applyStandardCategoryNames(config) {
+        $('btnMovieLatest').hidden = $('btnShowLatest').hidden = !config.useProwlarr;
+        $('movieSearchHeading').textContent = config.movieSearchCategory?.name || t('Movies');
+        $('seriesSearchHeading').textContent = config.seriesSearchCategory?.name || t('TV Shows');
+        $('movieSearchHeading').closest('.card').hidden = !!config.movieSearchCategory?.hidden;
+        $('seriesSearchHeading').closest('.card').hidden = !!config.seriesSearchCategory?.hidden;
+    }
+
+    function readCategoryRow(row) {
+        return {
+            name: row.querySelector('input').value.trim(),
+            categoryIds: Array.from(row.querySelector('select').selectedOptions, function (option) { return Number(option.value); }),
+            excludedCategoryIds: Array.from(row.querySelectorAll('select')[1].selectedOptions, function (option) { return Number(option.value); }),
+            [row.dataset.standardKey ? 'hidden' : 'showEpisodeFields']: row.querySelector('input[type="checkbox"]').checked
+        };
     }
 
     function confirmDownload(result, category) {
         state.selectedDownload = result;
         $('modalTitle').textContent = (result.title || '') + (result.year ? ' (' + result.year + ')' : '');
-        $('dlCategory').value = category === 'tv' ? 'tv' : 'movies';
-        $('dlSavePath').value = category === 'tv'
-            ? (state.config.tvShowsLibraryPath || '/media/tv')
-            : (state.config.moviesLibraryPath || '/media/movies');
+        var select = $('dlCategory');
+        select.replaceChildren(new Option(t('No category'), ''));
+        $('dlSavePath').value = '';
+        var askCategory = state.config?.askDownloadCategory !== false;
+        var useProwlarr = !askCategory && result.indexerId > 0 && result.guid;
+        select.closest('.form-group').hidden = !askCategory;
+        $('dlSavePath').closest('.form-group').hidden = !!useProwlarr;
         $('modal').classList.add('active');
+        if (!askCategory) {
+            $('btnConfirmDl').disabled = false;
+            return;
+        }
+        $('btnConfirmDl').disabled = true;
+        apiGet('/TorrentSearch/Download/Categories').then(function (categories) {
+            if (state.selectedDownload !== result) return;
+            (categories || []).forEach(function (name) { select.add(new Option(name, name)); });
+            if ((categories || []).includes(category)) select.value = category;
+            $('btnConfirmDl').disabled = false;
+        }).catch(function () {
+            if (state.selectedDownload === result) showToast(t('Could not load categories'), 'error');
+        });
     }
 
     function executeDownload() {
         if (!state.selectedDownload) return;
         var body = {
             magnetLink: state.selectedDownload.magnetLink,
+            releaseGuid: state.selectedDownload.guid,
+            indexerId: state.selectedDownload.indexerId || 0,
             savePath: $('dlSavePath').value,
             category: $('dlCategory').value,
             autoStart: true
@@ -880,13 +1299,13 @@ body {
             .then(function (result) {
                 result = result || {};
                 if (result.success) {
-                    showToast('Download started', 'success');
+                    showToast(t('Download started'), 'success');
                 } else {
-                    showToast('Failed: ' + (result.errorMessage || 'unknown error'), 'error');
+                    showToast(t('Failed: ') + (result.errorMessage || t('unknown error')), 'error');
                 }
             })
             .catch(function () {
-                showToast('Download failed', 'error');
+                showToast(t('Download failed'), 'error');
             })
             .finally(function () {
                 $('modal').classList.remove('active');
@@ -898,7 +1317,16 @@ body {
     function renderDownloads() {
         var list = $('dlList');
         var empty = $('dlEmpty');
-        if (!state.downloads || state.downloads.length === 0) {
+        var activeOnly = $('dlActiveOnly').checked;
+        var downloads = state.downloads || [];
+        if (activeOnly) {
+            downloads = downloads.filter(function (dl) {
+                var status = String(dl.state).toLowerCase();
+                return dl.progress < 1 && (status === 'downloading' || status === 'forceddownload');
+            });
+        }
+        if (!downloads.length) {
+            if (state.downloadsLoaded) empty.textContent = t(activeOnly ? 'No active downloads' : 'No downloads');
             list.style.display = 'none';
             list.innerHTML = '';
             empty.style.display = 'block';
@@ -907,8 +1335,9 @@ body {
         empty.style.display = 'none';
         list.style.display = 'flex';
         var html = '';
-        state.downloads.forEach(function (dl) {
+        downloads.forEach(function (dl) {
             var progress = Math.max(0, Math.min(1, dl.progress || 0));
+            var stopped = /^(paused|stopped)/i.test(dl.state);
             html += '<div class="download-item">' +
                 '<div class="download-info"><div class="download-name">' + escapeHtml(dl.name) + '</div>' +
                 '<div class="download-meta"><span>' + escapeHtml(dl.state) + '</span>' +
@@ -917,40 +1346,59 @@ body {
                 '<div class="progress-bar"><div class="progress-fill" style="width:' + (progress * 100) + '%"></div></div>' +
                 '<div class="download-progress">' + (progress * 100).toFixed(1) + '%</div>' +
                 '<div class="download-actions">' +
-                (dl.state !== 'paused' ? '<button type="button" class="btn btn-sm" data-pause="' + escapeHtml(dl.hash) + '">Pause</button>' : '') +
-                (dl.state === 'paused' ? '<button type="button" class="btn btn-sm" data-resume="' + escapeHtml(dl.hash) + '">Resume</button>' : '') +
-                '<button type="button" class="btn btn-sm btn-danger" data-remove="' + escapeHtml(dl.hash) + '">Remove</button>' +
+                (stopped ? '<button type="button" class="btn btn-sm" data-resume="' + escapeHtml(dl.hash) + '">' + t('Resume') + '</button>' :
+                    '<button type="button" class="btn btn-sm" data-pause="' + escapeHtml(dl.hash) + '">' + t('Pause') + '</button>') +
+                '<button type="button" class="btn btn-sm btn-danger" data-remove="' + escapeHtml(dl.hash) + '">' + t('Remove') + '</button>' +
                 '</div></div>';
         });
         list.innerHTML = html;
         list.querySelectorAll('[data-pause]').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                apiPost('/TorrentSearch/Downloads/' + btn.getAttribute('data-pause') + '/Pause', {});
-                loadDownloads();
+                finishDownloadAction(apiPost('/TorrentSearch/Downloads/' + btn.getAttribute('data-pause') + '/Pause', {}));
             });
         });
         list.querySelectorAll('[data-resume]').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                apiPost('/TorrentSearch/Downloads/' + btn.getAttribute('data-resume') + '/Resume', {});
-                loadDownloads();
+                finishDownloadAction(apiPost('/TorrentSearch/Downloads/' + btn.getAttribute('data-resume') + '/Resume', {}));
             });
         });
         list.querySelectorAll('[data-remove]').forEach(function (btn) {
             btn.addEventListener('click', function () {
-                if (!confirm('Remove this download?')) return;
-                apiDelete('/TorrentSearch/Downloads/' + btn.getAttribute('data-remove') + '?deleteFiles=false');
-                loadDownloads();
+                var dialog = $('removeDownloadDialog');
+                var hash = btn.getAttribute('data-remove');
+                dialog.returnValue = 'cancel';
+                dialog.addEventListener('close', function () {
+                    if (dialog.returnValue === 'remove') {
+                        finishDownloadAction(apiDelete('/TorrentSearch/Downloads/' + hash + '?deleteFiles=false'));
+                    }
+                }, { once: true });
+                dialog.showModal();
             });
+        });
+    }
+
+    function finishDownloadAction(action) {
+        action.then(function (ok) {
+            if (!ok) throw new Error();
+            loadDownloads();
+        }).catch(function () {
+            showToast(t('Download action failed'), 'error');
         });
     }
 
     function loadDownloads() {
         apiGet('/TorrentSearch/Downloads')
             .then(function (data) {
+                state.downloadsLoaded = true;
                 state.downloads = data || [];
                 renderDownloads();
             })
-            .catch(function () {});
+            .catch(function () {
+                state.downloadsLoaded = false;
+                $('dlEmpty').textContent = t('Could not load downloads. Check the qBittorrent connection in Settings.');
+                state.downloads = [];
+                renderDownloads();
+            });
     }
 
     function loadConfig() {
@@ -958,9 +1406,24 @@ body {
             .then(function (data) {
                 state.config = data || {};
                 populateForm(state.config);
+                applyStandardCategoryNames(state.config);
+                renderCustomSearchCards(state.config.customSearchCategories || []);
+                return apiGet('/TorrentSearch/Search/Categories').then(function (categories) {
+                    state.prowlarrCategories = categories || [];
+                    $('addCustomCategory').disabled = !state.prowlarrCategories.length;
+                }).catch(function () {
+                    showToast(t('Could not load categories'), 'error');
+                }).finally(function () {
+                    $('customCategoryRows').replaceChildren();
+                    $('standardCategoryRows').replaceChildren();
+                    addCustomCategoryRow(state.config.movieSearchCategory || { categoryIds: [2000] }, 'movieSearchCategory', t('Movies'));
+                    addCustomCategoryRow(state.config.seriesSearchCategory || { categoryIds: [5000] }, 'seriesSearchCategory', t('TV Shows'));
+                    (state.config.customSearchCategories || []).forEach(function (category) { addCustomCategoryRow(category); });
+                    state.customCategoriesLoaded = true;
+                });
             })
             .catch(function () {
-                showToast('Failed to load config', 'error');
+                showToast(t('Failed to load config'), 'error');
             });
     }
 
@@ -974,7 +1437,9 @@ body {
         $('qbittorrentUrl').value = config.qBittorrentUrl || '';
         $('qbittorrentUsername').value = config.qBittorrentUsername || '';
         $('qbittorrentPassword').value = config.qBittorrentPassword || '';
+        $('qbittorrentApiKey').value = config.qBittorrentApiKey || '';
         $('downloadPath').value = config.downloadPath || '';
+        $('askDownloadCategory').checked = config.askDownloadCategory !== false;
         $('maxConcurrentDownloads').value = config.maxConcurrentDownloads || 3;
         $('maxSearchResults').value = config.maxSearchResults || 20;
         $('minSeeders').value = config.minSeeders || 1;
@@ -982,6 +1447,7 @@ body {
         $('excludedKeywords').value = (config.excludedKeywords || []).join(', ');
         $('moviesLibraryPath').value = config.moviesLibraryPath || '';
         $('tvShowsLibraryPath').value = config.tvShowsLibraryPath || '';
+        $('autoImportDownloads').checked = config.autoImportDownloads !== false;
         $('autoRefreshLibrary').checked = !!config.autoRefreshLibrary;
         $('scanIntervalMinutes').value = config.scanIntervalMinutes || 5;
         toggleQbSection();
@@ -998,47 +1464,72 @@ body {
             qBittorrentUrl: $('qbittorrentUrl').value,
             qBittorrentUsername: $('qbittorrentUsername').value,
             qBittorrentPassword: $('qbittorrentPassword').value,
+            qBittorrentApiKey: $('qbittorrentApiKey').value.trim(),
             downloadPath: $('downloadPath').value,
+            askDownloadCategory: $('askDownloadCategory').checked,
             maxConcurrentDownloads: Number($('maxConcurrentDownloads').value) || 3,
             maxSearchResults: Number($('maxSearchResults').value) || 20,
             minSeeders: Number($('minSeeders').value) || 1,
             preferredKeywords: $('preferredKeywords').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean),
             excludedKeywords: $('excludedKeywords').value.split(',').map(function (s) { return s.trim(); }).filter(Boolean),
-            preferredTrackers: [],
+            preferredTrackers: state.config.preferredTrackers || [],
             moviesLibraryPath: $('moviesLibraryPath').value,
             tvShowsLibraryPath: $('tvShowsLibraryPath').value,
+            autoImportDownloads: $('autoImportDownloads').checked,
             autoRefreshLibrary: $('autoRefreshLibrary').checked,
             scanIntervalMinutes: Number($('scanIntervalMinutes').value) || 5
         };
     }
 
     function saveConfig() {
-        apiPost('/TorrentSearch/Config', collectForm())
+        if (!state.config) {
+            showToast(t('Load the saved settings before saving'), 'error');
+            return;
+        }
+        var config = Object.assign({}, state.config, collectForm());
+        if (state.customCategoriesLoaded) {
+            config.customSearchCategories = Array.from($('customCategoryRows').children, readCategoryRow);
+            var standardRows = Array.from($('standardCategoryRows').children);
+            standardRows.forEach(function (row) { config[row.dataset.standardKey] = readCategoryRow(row); });
+            if (standardRows.some(function (row) { return !config[row.dataset.standardKey].categoryIds.length; }) ||
+                config.customSearchCategories.some(function (category) { return !category.name || !category.categoryIds.length; })) {
+                showToast(t('Enter a name and category for each search card'), 'error');
+                return;
+            }
+        }
+        var payload = Object.fromEntries(Object.entries(config).map(function (entry) {
+            var key = entry[0];
+            return [key.startsWith('qBittorrent') ? 'QBittorrent' + key.slice('qBittorrent'.length) : key[0].toUpperCase() + key.slice(1), entry[1]];
+        }));
+        apiPost('/TorrentSearch/Config', payload)
             .then(function () {
-                showToast('Configuration saved', 'success');
+                state.config = config;
+                applyStandardCategoryNames(config);
+                renderCustomSearchCards(config.customSearchCategories || []);
+                showToast(t('Configuration saved'), 'success');
             })
-            .catch(function () {
-                showToast('Failed to save config', 'error');
+            .catch(function (error) {
+                showToast(t('Failed to save config: ') + error.message, 'error');
             });
     }
 
     function testIndexer() {
         apiGet('/TorrentSearch/Config/TestIndexer')
             .then(function (ok) {
-                showToast(ok ? 'Indexer connection successful' : 'Indexer connection failed', ok ? 'success' : 'error');
+                showToast(ok ? t('Indexer connection successful') : t('Indexer connection failed'), ok ? 'success' : 'error');
             })
             .catch(function () {
-                showToast('Indexer test failed', 'error');
+                showToast(t('Indexer test failed'), 'error');
             });
     }
 
     function testClient() {
         apiGet('/TorrentSearch/Config/TestClient')
             .then(function (ok) {
-                showToast(ok ? 'Client connection successful' : 'Client connection failed', ok ? 'success' : 'error');
+                showToast(ok ? t('Client connection successful') : t('Client connection failed'), ok ? 'success' : 'error');
             })
             .catch(function () {
-                showToast('Client test failed', 'error');
+                showToast(t('Client test failed'), 'error');
             });
     }
 
@@ -1050,42 +1541,72 @@ body {
         showToast('Scanning ' + (mediaType === 'Movie' ? 'movies' : 'TV shows') + ' library...', 'info');
         apiPost('/TorrentSearch/Library/Sync', { mediaType: mediaType })
             .then(function () {
-                showToast((mediaType === 'Movie' ? 'Movies' : 'TV shows') + ' library scan initiated', 'success');
+                showToast((mediaType === 'Movie' ? t('Movies') : 'TV shows') + ' library scan initiated', 'success');
             })
             .catch(function () {
-                showToast('Library scan failed', 'error');
+                showToast(t('Library scan failed'), 'error');
             });
     }
 
     function refreshLibrary() {
-        showToast('Refreshing Jellyfin library...', 'info');
+        showToast(t('Refreshing Jellyfin library...'), 'info');
         apiPost('/TorrentSearch/Library/Refresh', { libraryId: 'Movies' })
             .then(function () { return apiPost('/TorrentSearch/Library/Refresh', { libraryId: 'TV Shows' }); })
             .then(function () {
-                showToast('Library refresh triggered', 'success');
+                showToast(t('Library refresh triggered'), 'success');
             })
             .catch(function () {
-                showToast('Library refresh failed', 'error');
+                showToast(t('Library refresh failed'), 'error');
             });
     }
 
     function switchTab(tab) {
         state.activeTab = tab;
-        document.querySelectorAll('.tab-btn').forEach(function (btn) {
+        page.querySelectorAll('.tab-btn').forEach(function (btn) {
             btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
         });
-        document.querySelectorAll('.tab-panel').forEach(function (panel) {
+        page.querySelectorAll('.tab-panel').forEach(function (panel) {
             panel.classList.toggle('active', panel.id === 'panel-' + tab);
         });
         if (tab === 'downloads') loadDownloads();
     }
 
+    function updateTrackerStatus(empty) {
+        if (empty) empty.textContent = t('No results found');
+        apiGet('/TorrentSearch/UserDownloads/Status').then(function (data) {
+            var notice = $('trackerStatus');
+            notice.textContent = (data.status ?? data.Status) === 'indexer' ? t('Prowlarr reports an indexer issue. Search results may be missing.') :
+                (data.status ?? data.Status) === 'unavailable' ? t('Prowlarr status is unavailable.') : '';
+            notice.hidden = !notice.textContent;
+            if (empty && notice.textContent) empty.textContent = notice.textContent;
+        }).catch(function () {
+            var notice = $('trackerStatus');
+            notice.textContent = t('Prowlarr status is unavailable.');
+            notice.hidden = false;
+            if (empty) empty.textContent = notice.textContent;
+        });
+    }
+
     function init() {
-        document.querySelectorAll('.tab-btn').forEach(function (btn) {
+        updateTrackerStatus();
+        setInterval(function () {
+            if (page.isConnected && $('panel-search').classList.contains('active')) updateTrackerStatus();
+        }, 30000);
+        $('addCustomCategory').addEventListener('click', function () { addCustomCategoryRow({}); });
+        var activeOnly = $('dlActiveOnly');
+        activeOnly.checked = localStorage.getItem('torrentSearch.activeDownloadsOnly') === 'true';
+        activeOnly.addEventListener('change', function () {
+            localStorage.setItem('torrentSearch.activeDownloadsOnly', String(activeOnly.checked));
+            renderDownloads();
+        });
+        translatePage();
+        page.querySelectorAll('.tab-btn').forEach(function (btn) {
             btn.addEventListener('click', function () { switchTab(btn.getAttribute('data-tab')); });
         });
         $('btnMovieSearch').addEventListener('click', searchMovies);
         $('btnShowSearch').addEventListener('click', searchShows);
+        $('btnMovieLatest').addEventListener('click', function (event) { searchMovies(event, true); });
+        $('btnShowLatest').addEventListener('click', function (event) { searchShows(event, true); });
         $('movieQuery').addEventListener('keydown', function (e) { if (e.key === 'Enter') searchMovies(); });
         $('showQuery').addEventListener('keydown', function (e) { if (e.key === 'Enter') searchShows(); });
         $('btnSaveConfig').addEventListener('click', saveConfig);
@@ -1106,6 +1627,8 @@ body {
         setInterval(loadDownloads, 5000);
     }
 
+    var page = document.getElementById('torrentSearchPage');
+    if (!page) return;
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', init);
     } else {
@@ -1113,5 +1636,4 @@ body {
     }
 })();
 </script>
-</body>
-</html>
+</div>

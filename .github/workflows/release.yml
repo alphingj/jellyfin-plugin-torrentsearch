@@ -9,6 +9,7 @@ permissions:
 
 jobs:
   release:
+    if: github.repository == 'alphingj/jellyfin-plugin-torrentsearch'
     runs-on: ubuntu-latest
     outputs:
       checksum: ${{ steps.checksum.outputs.md5 }}

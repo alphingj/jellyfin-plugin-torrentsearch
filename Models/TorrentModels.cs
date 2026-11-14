@@ -16,6 +16,7 @@ public class TorrentResult
     public DateTime PublishDate { get; set; }
     public string InfoHash { get; set; } = string.Empty;
     public string Guid { get; set; } = string.Empty;
+    public int IndexerId { get; set; }
     public QualityInfo Quality { get; set; } = new();
     public double Score { get; set; }
     public MediaType MediaType { get; set; }
@@ -102,8 +103,14 @@ public class SyncResult
     public List<string> CreatedFiles { get; set; } = new();
 }
 
+public sealed record SearchCategory(int Id, string Name, SearchCategory[]? SubCategories);
+
 public class TorznabSearchRequest
 {
+    public bool AllCategories { get; set; }
+    public int[] ExcludedCategoryIds { get; set; } = [];
+    public int? CategoryId { get; set; }
+    public int[] CategoryIds { get; set; } = [];
     public string Query { get; set; } = string.Empty;
     public MediaType MediaType { get; set; }
     public int? Year { get; set; }
@@ -117,6 +124,8 @@ public class TorznabSearchRequest
 
 public class DownloadOptions
 {
+    public string? ReleaseGuid { get; set; }
+    public int IndexerId { get; set; }
     public string MagnetLink { get; set; } = string.Empty;
     public string SavePath { get; set; } = string.Empty;
     public string Category { get; set; } = "movies";

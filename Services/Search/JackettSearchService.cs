@@ -1,25 +1,27 @@
+using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Jellyfin.Plugin.TorrentSearch.Models;
 using Jellyfin.Plugin.TorrentSearch.Helpers;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Caching.Memory;
 using Polly;
 
 namespace Jellyfin.Plugin.TorrentSearch.Services.Search;
 
 public class JackettSearchService : ITorrentSearchService
 {
-    private readonly PluginConfiguration _config;
+    private PluginConfiguration _config => Plugin.Instance.Configuration;
     private readonly ILogger<JackettSearchService> _logger;
     private readonly HttpClient _httpClient;
     private readonly QualityParser _qualityParser;
+    private readonly MemoryCache _releaseLinks = new(new MemoryCacheOptions { SizeLimit = 2000 });
     private readonly IAsyncPolicy<HttpResponseMessage> _retryPolicy;
     private static readonly XNamespace TorznabNs = "http://torznab.com/schemas/2015/feed";
 
-    public JackettSearchService(PluginConfiguration config, ILogger<JackettSearchService> logger, HttpClient httpClient, QualityParser qualityParser)
+    public JackettSearchService(ILogger<JackettSearchService> logger, HttpClient httpClient, QualityParser qualityParser)
     {
-        _config = config;
         _logger = logger;
         _httpClient = httpClient;
         _qualityParser = qualityParser;
@@ -33,21 +35,20 @@ public class JackettSearchService : ITorrentSearchService
                     _logger.LogWarning("Retry {RetryCount} for Jackett search after {Timespan}", retryCount, timespan);
                 });
 
-        ConfigureHttpClient();
+        _httpClient.Timeout = TimeSpan.FromSeconds(30);
     }
 
-    private void ConfigureHttpClient()
+    private async Task<HttpResponseMessage> GetAsync(string path, PluginConfiguration config, CancellationToken ct)
     {
-        var baseUrl = _config.UseProwlarr ? _config.ProwlarrUrl : _config.JackettUrl;
-        var apiKey = _config.UseProwlarr ? _config.ProwlarrApiKey : _config.JackettApiKey;
-
-        _httpClient.BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/");
-        _httpClient.DefaultRequestHeaders.Clear();
+        var baseUrl = config.UseProwlarr ? config.ProwlarrUrl : config.JackettUrl;
+        var apiKey = config.UseProwlarr ? config.ProwlarrApiKey : config.JackettApiKey;
+        using var request = new HttpRequestMessage(HttpMethod.Get, new Uri(new Uri(baseUrl.TrimEnd('/') + "/"), path));
         if (!string.IsNullOrEmpty(apiKey))
         {
-            _httpClient.DefaultRequestHeaders.Add("X-Api-Key", apiKey);
+            request.Headers.Add("X-Api-Key", apiKey);
         }
-        _httpClient.Timeout = TimeSpan.FromSeconds(30);
+
+        return await _httpClient.SendAsync(request, ct);
     }
 
     public async Task<SearchResult> SearchMoviesAsync(string query, int year = 0, CancellationToken ct = default)
@@ -84,6 +85,45 @@ public class JackettSearchService : ITorrentSearchService
 
         try
         {
+            var config = _config;
+            if (config.UseProwlarr)
+            {
+                var standard = request.MediaType == MediaType.Movie ? config.MovieSearchCategory : config.SeriesSearchCategory;
+                var categoryIds = (request.CategoryIds ?? []).Where(id => id > 0).Distinct().ToArray();
+                var useStandard = categoryIds.Length == 0 && request.CategoryId is null;
+                var excluded = (useStandard ? standard?.ExcludedCategoryIds : request.ExcludedCategoryIds) ?? [];
+                if (useStandard)
+                    categoryIds = (standard?.CategoryIds ?? []).Where(id => id > 0).Distinct().ToArray();
+                if (categoryIds.Length == 0)
+                    categoryIds = [request.CategoryId ?? (request.MediaType == MediaType.Movie ? 2000 : 5000)];
+                var categories = string.Join("&", categoryIds.Select(id => $"categories={id}"));
+                var suffix = request.Season is int season
+                    ? $" S{season:D2}" + (request.Episode is int episode ? $"E{episode:D2}" : "")
+                    : request.Year is int year ? $" {year}" : "";
+                var query = Uri.EscapeDataString(request.Query + suffix);
+                var categoryFilter = request.AllCategories ? string.Empty : $"&{categories}";
+                using var prowlarrResponse = await GetAsync($"api/v1/search?type=search&query={query}{categoryFilter}", config, ct);
+                prowlarrResponse.EnsureSuccessStatusCode();
+                var releases = await prowlarrResponse.Content.ReadFromJsonAsync<ProwlarrRelease[]>(cancellationToken: ct) ?? [];
+                releases = releases.Where(release => !(release.Categories ?? []).Any(category => excluded.Contains(category.Id))).ToArray();
+                foreach (var release in releases.Where(r => r.DownloadUrl != null))
+                {
+                    _releaseLinks.Set((release.IndexerId, release.Guid), release.DownloadUrl!,
+                        new MemoryCacheEntryOptions { Size = 1, AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(30) });
+                }
+                results = FilterAndRankResults(releases
+                    .Where(r => r.IndexerId > 0 && !string.IsNullOrEmpty(r.Guid))
+                    .Select(r => new TorrentResult
+                    {
+                        Guid = r.Guid, IndexerId = r.IndexerId, Title = r.Title,
+                        Size = r.Size, Seeders = r.Seeders ?? 0, Leechers = r.Leechers ?? 0,
+                        Indexer = r.Indexer, PublishDate = r.PublishDate,
+                        MediaType = request.MediaType, Quality = _qualityParser.ParseQuality(r.Title)
+                    }).ToList(), request);
+                return new SearchResult { Results = results, TotalResults = results.Count,
+                    SearchQuery = request.Query, SearchTime = stopwatch.Elapsed };
+            }
+
             var searchType = request.MediaType == MediaType.Movie ? "movie" : "tvsearch";
             var category = request.MediaType == MediaType.Movie ? "2000" : "5000";
 
@@ -111,7 +151,7 @@ public class JackettSearchService : ITorrentSearchService
 
             _logger.LogDebug("Searching Jackett: {Url}", url);
 
-            var response = await _retryPolicy.ExecuteAsync(() => _httpClient.GetAsync(url, ct));
+            using var response = await _retryPolicy.ExecuteAsync(token => GetAsync(url, config, token), ct);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -126,7 +166,8 @@ public class JackettSearchService : ITorrentSearchService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error searching Jackett for query: {Query}", request.Query);
+            _logger.LogError("Torrent search failed: {ErrorType}", ex.GetType().Name);
+            throw;
         }
         finally
         {
@@ -257,7 +298,7 @@ public class JackettSearchService : ITorrentSearchService
                 r.Score = CalculateScore(r);
                 return r;
             })
-            .OrderByDescending(r => r.Score)
+            .OrderByDescending(r => string.IsNullOrWhiteSpace(request.Query) ? r.PublishDate.Ticks : (double)r.Score)
             .ThenByDescending(r => r.Seeders)
             .Take(request.MaxResults)
             .ToList();
@@ -282,12 +323,55 @@ public class JackettSearchService : ITorrentSearchService
         return score;
     }
 
+    private sealed record ProwlarrRelease(string Guid, int IndexerId, string Title,
+        string Indexer, long Size, int? Seeders, int? Leechers, DateTime PublishDate, string? DownloadUrl, SearchCategory[]? Categories);
+
+    public async Task<IReadOnlyList<SearchCategory>> GetCategoriesAsync(CancellationToken ct)
+    {
+        var config = _config;
+        if (!config.UseProwlarr) return [];
+        using var response = await GetAsync("api/v1/indexer", config, ct);
+        response.EnsureSuccessStatusCode();
+        var indexers = await response.Content.ReadFromJsonAsync<ProwlarrIndexer[]>(cancellationToken: ct) ?? [];
+        return indexers.Where(i => i.Enable).SelectMany(i => i.Capabilities?.Categories ?? [])
+            .SelectMany(c => new[] { c }.Concat(c.SubCategories ?? []))
+            .DistinctBy(c => c.Id).OrderBy(c => c.Id).ToArray();
+    }
+
+    public async Task<HttpResponseMessage?> GetReleaseAsync(int indexerId, string guid, CancellationToken ct)
+    {
+        var config = _config;
+        if (!_releaseLinks.TryGetValue((indexerId, guid), out string? link) ||
+            !Uri.TryCreate(link, UriKind.Absolute, out var uri))
+        {
+            return null;
+        }
+
+        var baseUri = new Uri(config.ProwlarrUrl.TrimEnd('/') + "/");
+        if (!baseUri.IsBaseOf(uri))
+        {
+            // Prowlarr may advertise its public address in a proxy download link.
+            var proxyPath = $"/{indexerId}/download";
+            if (!uri.AbsolutePath.EndsWith(proxyPath, StringComparison.Ordinal)) return null;
+            uri = new Uri(baseUri, proxyPath.TrimStart('/') + uri.Query);
+        }
+
+        using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false });
+        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+        request.Headers.Add("X-Api-Key", config.ProwlarrApiKey);
+        return await client.SendAsync(request, ct);
+    }
+
+    private sealed record ProwlarrIndexer(bool Enable, ProwlarrCapabilities? Capabilities);
+    private sealed record ProwlarrCapabilities(SearchCategory[] Categories);
+
     public async Task<bool> TestConnectionAsync(CancellationToken ct = default)
     {
         try
         {
-            var url = "api/v2.0/indexers/all/results/torznab/api?t=search&q=test&limit=1";
-            var response = await _httpClient.GetAsync(url, ct);
+            var config = _config;
+            var url = config.UseProwlarr ? "api/v1/system/status" : "api/v2.0/indexers/all/results/torznab/api?t=search&q=test&limit=1";
+            using var response = await GetAsync(url, config, ct);
             return response.IsSuccessStatusCode;
         }
         catch
